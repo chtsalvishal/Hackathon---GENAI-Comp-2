@@ -1,0 +1,29 @@
+config {
+  type: "operations",
+  schema: "bronze",
+  description: "External table over gs://intelia-hackathon-files/products*.csv — includes core file and all delta batches",
+  tags: ["bronze", "daily_refresh"],
+  hasOutput: true
+}
+
+CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_products` (
+  product_id      STRING,
+  product_name    STRING,
+  category        STRING,
+  sub_category    STRING,
+  brand           STRING,
+  unit_price      STRING,
+  cost_price      STRING,
+  stock_quantity  STRING,
+  created_at      STRING
+)
+OPTIONS (
+  format              = 'CSV',
+  uris                = [
+    'gs://intelia-hackathon-files/products.csv',
+    'gs://intelia-hackathon-files/batch_0*_products_delta.csv'
+  ],
+  skip_leading_rows   = 1,
+  allow_quoted_newlines = true,
+  allow_jagged_rows   = true
+);

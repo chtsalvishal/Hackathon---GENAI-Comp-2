@@ -1,0 +1,99 @@
+{
+  "entity": "orders",
+  "version": "v1",
+  "primary_key": "order_id",
+  "gcs_source": "gs://intelia-hackathon-files/orders.csv",
+  "delta_pattern": "gs://intelia-hackathon-files/batch_0*_orders_delta.csv",
+  "bronze_table": "vishal-sandpit-474523.bronze.ext_orders",
+  "silver_table": "vishal-sandpit-474523.silver.stg_orders",
+  "gold_table": "vishal-sandpit-474523.gold.fct_orders",
+  "columns": [
+    {
+      "name": "order_id",
+      "type": "STRING",
+      "nullable": false,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Unique identifier for the order"
+    },
+    {
+      "name": "customer_id",
+      "type": "STRING",
+      "nullable": false,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Foreign key referencing customers.customer_id"
+    },
+    {
+      "name": "order_date",
+      "type": "DATE",
+      "nullable": false,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Date the order was placed (YYYY-MM-DD)"
+    },
+    {
+      "name": "status",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Order fulfilment status (e.g. pending, shipped, delivered, cancelled)"
+    },
+    {
+      "name": "shipping_address",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Shipping street address"
+    },
+    {
+      "name": "shipping_city",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Shipping destination city"
+    },
+    {
+      "name": "shipping_state",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Shipping destination state or province"
+    },
+    {
+      "name": "shipping_country",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Shipping destination country"
+    },
+    {
+      "name": "total_amount",
+      "type": "NUMERIC",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": true,
+      "description": "Total order value in base currency before any platform-level adjustments"
+    },
+    {
+      "name": "created_at",
+      "type": "TIMESTAMP",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Timestamp the order record was created in the source system (YYYY-MM-DD HH:MM:SS)"
+    }
+  ],
+  "version_history": [
+    {
+      "version": "v1",
+      "effective_from": "2024-01-01",
+      "changes": "Initial schema"
+    }
+  ]
+}

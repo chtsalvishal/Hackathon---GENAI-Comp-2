@@ -1,0 +1,94 @@
+config {
+  type: "operations",
+  schema: "gold",
+  tags: ["delta"],
+  description: "MERGE delta batch order_items into silver.stg_order_items with idempotency guard via batch_audit_log"
+}
+
+-- Idempotency guard: skip if this batch was already successfully processed today
+DECLARE batch_already_processed BOOL DEFAULT FALSE;
+
+SET batch_already_processed = (
+  SELECT COUNT(*) > 0
+  FROM `vishal-sandpit-474523.governance.batch_audit_log`
+  WHERE batch_id = CONCAT('delta_order_items_', FORMAT_DATE('%Y%m%d', CURRENT_DATE()))
+    AND status = 'COMPLETED'
+);
+
+IF NOT batch_already_processed THEN
+
+  -- Log run start
+  INSERT INTO `vishal-sandpit-474523.governance.batch_audit_log`
+    (batch_id, file_name, entity, status, started_at, run_by)
+  VALUES (
+    CONCAT('delta_order_items_', FORMAT_DATE('%Y%m%d', CURRENT_DATE())),
+    'gs://intelia-hackathon-files/batch_0*_order_items_delta.csv',
+    'order_items',
+    'RUNNING',
+    CURRENT_TIMESTAMP(),
+    SESSION_USER()
+  );
+
+  -- MERGE delta records into silver staging table
+  MERGE `vishal-sandpit-474523.silver.stg_order_items` AS target
+  USING (
+    SELECT
+      TRIM(order_item_id)              AS order_item_id,
+      TRIM(order_id)                   AS order_id,
+      TRIM(product_id)                 AS product_id,
+      SAFE_CAST(quantity   AS INT64)   AS quantity,
+      SAFE_CAST(unit_price AS NUMERIC) AS unit_price,
+      SAFE_CAST(discount   AS NUMERIC) AS discount,
+      SAFE_CAST(subtotal   AS NUMERIC) AS subtotal,
+      source_file
+    FROM `vishal-sandpit-474523.bronze.ext_order_items`
+    WHERE source_file LIKE '%batch_0%'
+      AND order_item_id IS NOT NULL
+      AND TRIM(order_item_id) != ''
+      AND order_id IS NOT NULL
+      AND TRIM(order_id) != ''
+  ) AS source
+  ON target.order_item_id = source.order_item_id
+
+  WHEN MATCHED THEN UPDATE SET
+    target.order_id    = source.order_id,
+    target.product_id  = source.product_id,
+    target.quantity    = source.quantity,
+    target.unit_price  = source.unit_price,
+    target.discount    = source.discount,
+    target.subtotal    = source.subtotal,
+    target.source_file = source.source_file,
+    target.updated_at  = CURRENT_TIMESTAMP()
+
+  WHEN NOT MATCHED THEN INSERT (
+    order_item_id,
+    order_id,
+    product_id,
+    quantity,
+    unit_price,
+    discount,
+    subtotal,
+    source_file,
+    updated_at
+  ) VALUES (
+    source.order_item_id,
+    source.order_id,
+    source.product_id,
+    source.quantity,
+    source.unit_price,
+    source.discount,
+    source.subtotal,
+    source.source_file,
+    CURRENT_TIMESTAMP()
+  );
+
+  -- Mark batch as completed
+  UPDATE `vishal-sandpit-474523.governance.batch_audit_log`
+  SET
+    status         = 'COMPLETED',
+    completed_at   = CURRENT_TIMESTAMP(),
+    rows_processed = @@row_count
+  WHERE batch_id = CONCAT('delta_order_items_', FORMAT_DATE('%Y%m%d', CURRENT_DATE()))
+    AND status = 'RUNNING';
+
+END IF;

@@ -1,0 +1,54 @@
+{
+  "canvas_name": "Intelia Executive Intelligence Canvas",
+  "description": "Live exploration workspace for CCO, CPO, and CTO board meeting preparation",
+  "project_id": "vishal-sandpit-474523",
+  "created_date": "2026-03-23",
+  "cells": [
+    {
+      "cell_id": "revenue_trend",
+      "title": "Revenue Trend — Last 12 Months",
+      "type": "query",
+      "audience": "CCO",
+      "sql": "SELECT FORMAT_DATE('%Y-%m', summary_date) AS month, SUM(gross_revenue) AS revenue, SUM(order_count) AS orders, SUM(unique_customers) AS customers FROM `vishal-sandpit-474523.gold.mart_revenue_summary` WHERE summary_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH) GROUP BY 1 ORDER BY 1",
+      "visualization": "line_chart",
+      "x_axis": "month",
+      "y_axis": "revenue",
+      "gemini_explain": true,
+      "notes": "Click 'Explain with Gemini' to get an AI summary of the revenue trend"
+    },
+    {
+      "cell_id": "customer_segments",
+      "title": "Customer Segment Health Map",
+      "type": "query",
+      "audience": "CCO",
+      "sql": "SELECT customer_segment, churn_risk, COUNT(*) AS customers, ROUND(AVG(total_lifetime_value), 2) AS avg_ltv, ROUND(SUM(total_lifetime_value), 2) AS segment_revenue FROM `vishal-sandpit-474523.gold.dim_customers` GROUP BY 1, 2 ORDER BY segment_revenue DESC",
+      "visualization": "table",
+      "gemini_explain": true,
+      "notes": "Breakdown of customers by segment and churn risk with LTV metrics"
+    },
+    {
+      "cell_id": "gemini_insights_explorer",
+      "title": "Gemini Customer Insights Explorer",
+      "type": "query",
+      "audience": "CCO, CPO",
+      "sql": "SELECT customer_name, customer_segment, churn_risk, total_lifetime_value, days_since_last_purchase, gemini_persona_and_strategy FROM `vishal-sandpit-474523.ai.customer_concierge` WHERE generation_status = 'success' ORDER BY total_lifetime_value DESC LIMIT 25",
+      "visualization": "table",
+      "gemini_explain": true,
+      "notes": "Top customers with Gemini-generated personas. Filter by segment or churn risk to focus analysis."
+    },
+    {
+      "cell_id": "pipeline_status",
+      "title": "Data Pipeline Health Dashboard",
+      "type": "query",
+      "audience": "CTO",
+      "sql": "SELECT entity, status, batch_id, rows_processed, started_at, completed_at, TIMESTAMP_DIFF(completed_at, started_at, SECOND) AS duration_secs, error_message FROM `vishal-sandpit-474523.governance.batch_audit_log` ORDER BY started_at DESC LIMIT 20",
+      "visualization": "table",
+      "gemini_explain": true,
+      "notes": "Real-time delta pipeline status. Red rows indicate failures requiring investigation."
+    }
+  ],
+  "sharing": {
+    "view_access": ["cco@intelia.com.au", "cpo@intelia.com.au", "cto@intelia.com.au"],
+    "edit_access": ["data-engineer@intelia.com.au"]
+  }
+}

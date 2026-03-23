@@ -1,0 +1,43 @@
+config {
+  type: "assertion",
+  tags: ["quality", "delta"],
+  description: "Delta batch files must contain at least one row. An empty batch signals a potential upstream data delivery failure."
+}
+
+-- This assertion returns rows (i.e. FAILS) when the delta batch
+-- for the current day contains zero records.
+-- A non-zero row count means the assertion passes (returns no rows).
+
+SELECT
+  'delta_customers' AS batch_entity,
+  COUNT(*)          AS row_count
+FROM `vishal-sandpit-474523.bronze.ext_customers`
+WHERE source_file LIKE '%batch_0%'
+HAVING COUNT(*) = 0
+
+UNION ALL
+
+SELECT
+  'delta_orders' AS batch_entity,
+  COUNT(*)       AS row_count
+FROM `vishal-sandpit-474523.bronze.ext_orders`
+WHERE source_file LIKE '%batch_0%'
+HAVING COUNT(*) = 0
+
+UNION ALL
+
+SELECT
+  'delta_order_items' AS batch_entity,
+  COUNT(*)            AS row_count
+FROM `vishal-sandpit-474523.bronze.ext_order_items`
+WHERE source_file LIKE '%batch_0%'
+HAVING COUNT(*) = 0
+
+UNION ALL
+
+SELECT
+  'delta_products' AS batch_entity,
+  COUNT(*)         AS row_count
+FROM `vishal-sandpit-474523.bronze.ext_products`
+WHERE source_file LIKE '%batch_0%'
+HAVING COUNT(*) = 0

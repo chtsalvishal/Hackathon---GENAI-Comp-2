@@ -1,0 +1,7 @@
+google-cloud-bigquery>=3.11.0
+google-cloud-aiplatform>=1.42.0
+langchain>=0.1.14
+langchain-google-vertexai>=0.1.2
+langchain-core>=0.1.33
+pandas>=2.0.0
+pyarrow>=14.0.0

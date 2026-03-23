@@ -1,0 +1,21 @@
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/.terraform.lock.hcl
+
+# Secrets — never commit
+*.tfvars.local
+*.pem
+*.key
+service-account*.json
+credentials*.json
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# OS
+.DS_Store
+Thumbs.db

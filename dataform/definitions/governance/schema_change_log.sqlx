@@ -1,0 +1,25 @@
+config {
+  type: "table",
+  schema: "governance",
+  description: "Schema evolution event log. Records new columns, type changes, and removed columns detected during pipeline runs.",
+  tags: ["governance"],
+  bigquery: {
+    partitionBy: "DATE(detected_at)",
+    clusterBy: ["table_name", "change_type"]
+  }
+}
+
+-- Scaffold table. Rows are written by schema evolution detection logic
+-- in schema_evolution.js helpers or by downstream monitoring processes.
+-- WHERE FALSE ensures zero rows at creation time while preserving the schema.
+
+SELECT
+  CAST(NULL AS STRING)    AS event_id,
+  CAST(NULL AS STRING)    AS table_name,
+  CAST(NULL AS STRING)    AS column_name,
+  CAST(NULL AS STRING)    AS change_type,      -- NEW_COLUMN | TYPE_CHANGE | COLUMN_REMOVED
+  CAST(NULL AS STRING)    AS old_value,
+  CAST(NULL AS STRING)    AS new_value,
+  CAST(NULL AS TIMESTAMP) AS detected_at,
+  CAST(NULL AS STRING)    AS handled_by
+WHERE FALSE

@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "prompts": {
+    "customer_persona_v1": {
+      "version": "v1",
+      "status": "production",
+      "approved_date": "2026-03-23",
+      "model": "gemini-1.5-pro",
+      "temperature": 0.2,
+      "max_output_tokens": 256,
+      "use_case": "customer_concierge",
+      "template": "You are a customer success expert. Analyse this customer profile and provide:\n1. A 2-sentence persona describing their behaviour and value to the business.\n2. One specific, actionable retention strategy tailored to their situation.\n\nCustomer: {customer_name}\nSegment: {customer_segment}\nLifetime Value: ${total_lifetime_value}\nTotal Orders: {order_count}\nAverage Order Value: ${avg_order_value}\nDays Since Last Purchase: {days_since_last_purchase}\nChurn Risk: {churn_risk}\nCountry: {country}",
+      "test_cases": [
+        {
+          "input": {
+            "customer_name": "Jane Smith",
+            "customer_segment": "Gold",
+            "total_lifetime_value": 7500,
+            "order_count": 15,
+            "avg_order_value": 500,
+            "days_since_last_purchase": 45,
+            "churn_risk": "Active",
+            "country": "Australia"
+          },
+          "expected_contains": ["persona", "retention"]
+        }
+      ]
+    },
+    "product_upsell_v1": {
+      "version": "v1",
+      "status": "production",
+      "approved_date": "2026-03-23",
+      "model": "gemini-1.5-pro",
+      "temperature": 0.3,
+      "max_output_tokens": 200,
+      "use_case": "product_upsell",
+      "template": "You are a product strategist. For this product, provide exactly 2 specific strategies:\n1. A cross-sell recommendation (complementary product or bundle)\n2. An upsell strategy (premium tier or increased quantity)\n\nProduct: {product_name}\nCategory: {category}\nPrice: ${unit_price}\nUnique Buyers (90 days): {unique_buyers}\nTotal Revenue (90 days): ${total_revenue}"
+    }
+  }
+}

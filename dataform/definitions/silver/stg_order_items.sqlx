@@ -1,0 +1,52 @@
+config {
+  type: "table",
+  schema: "silver",
+  description: "Cleaned and typed order items. Revenue columns tagged with sensitive_revenue policy tag.",
+  tags: ["silver", "daily_refresh"],
+  columns: {
+    order_item_id: { description: "Unique order item identifier" },
+    order_id: { description: "Foreign key to stg_orders" },
+    product_id: { description: "Foreign key to stg_products" },
+    quantity: { description: "Number of units ordered" },
+    unit_price: {
+      description: "Price per unit at time of purchase",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/4390288473413043579"]
+    },
+    discount: { description: "Discount amount applied to this line item" },
+    subtotal: {
+      description: "Line total after discount (quantity * unit_price - discount)",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/4390288473413043579"]
+    },
+    source_file: { description: "GCS source file name" },
+    updated_at: { description: "Timestamp this record was last processed" }
+  },
+  assertions: {
+    uniqueKey: ["order_item_id"],
+    nonNull: ["order_item_id", "order_id", "product_id"]
+  }
+}
+
+SELECT
+  TRIM(order_item_id)                AS order_item_id,
+  TRIM(order_id)                     AS order_id,
+  TRIM(product_id)                   AS product_id,
+  SAFE_CAST(quantity   AS INT64)     AS quantity,
+  SAFE_CAST(unit_price AS NUMERIC)   AS unit_price,
+  SAFE_CAST(discount   AS NUMERIC)   AS discount,
+  SAFE_CAST(subtotal   AS NUMERIC)   AS subtotal,
+  source_file,
+  CURRENT_TIMESTAMP()                AS updated_at
+FROM (
+  SELECT
+    *,
+    ROW_NUMBER() OVER (
+      PARTITION BY order_item_id
+      ORDER BY source_file DESC
+    ) AS rn
+  FROM ${ref("ext_order_items")}
+  WHERE order_item_id IS NOT NULL
+    AND TRIM(order_item_id) != ''
+    AND order_id IS NOT NULL
+    AND TRIM(order_id) != ''
+)
+WHERE rn = 1

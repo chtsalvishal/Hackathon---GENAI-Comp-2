@@ -1,0 +1,67 @@
+config {
+  type: "table",
+  schema: "silver",
+  description: "Cleaned and standardised customers. PII columns tagged.",
+  tags: ["silver", "daily_refresh", "pii"],
+  columns: {
+    customer_id: {
+      description: "Unique customer identifier",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/7825657596165317938"]
+    },
+    first_name: {
+      description: "Customer first name",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/7825657596165317938"]
+    },
+    last_name: {
+      description: "Customer last name",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/7825657596165317938"]
+    },
+    email: {
+      description: "Customer email address",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/7825657596165317938"]
+    },
+    phone: {
+      description: "Customer phone number",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/7825657596165317938"]
+    },
+    address: { description: "Street address" },
+    city: { description: "City name (uppercased)" },
+    state: { description: "State or province (uppercased)" },
+    country: { description: "Country code or name (uppercased)" },
+    postcode: { description: "Postal code" },
+    created_date: { description: "Date the customer record was created" },
+    source_file: { description: "GCS source file name" },
+    updated_at: { description: "Timestamp this record was last processed" }
+  },
+  assertions: {
+    uniqueKey: ["customer_id"],
+    nonNull: ["customer_id", "email"]
+  }
+}
+
+SELECT
+  TRIM(customer_id)                         AS customer_id,
+  TRIM(LOWER(first_name))                   AS first_name,
+  TRIM(LOWER(last_name))                    AS last_name,
+  TRIM(LOWER(email))                        AS email,
+  REGEXP_REPLACE(TRIM(phone), r'\s+', '')   AS phone,
+  TRIM(address)                             AS address,
+  TRIM(UPPER(city))                         AS city,
+  TRIM(UPPER(state))                        AS state,
+  TRIM(UPPER(country))                      AS country,
+  TRIM(postcode)                            AS postcode,
+  SAFE.PARSE_DATE('%Y-%m-%d', created_date) AS created_date,
+  source_file,
+  CURRENT_TIMESTAMP()                       AS updated_at
+FROM (
+  SELECT
+    *,
+    ROW_NUMBER() OVER (
+      PARTITION BY customer_id
+      ORDER BY source_file DESC
+    ) AS rn
+  FROM ${ref("ext_customers")}
+  WHERE customer_id IS NOT NULL
+    AND TRIM(customer_id) != ''
+)
+WHERE rn = 1

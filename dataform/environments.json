@@ -1,0 +1,52 @@
+{
+  "environments": [
+    {
+      "name": "dev",
+      "configOverride": {
+        "defaultSchema": "dev_gold",
+        "assertionSchema": "dev_dataform_assertions",
+        "vars": {
+          "environment": "dev"
+        }
+      },
+      "scheduledExecutionConfigs": []
+    },
+    {
+      "name": "staging",
+      "configOverride": {
+        "defaultSchema": "staging_gold",
+        "assertionSchema": "staging_dataform_assertions",
+        "vars": {
+          "environment": "staging"
+        }
+      },
+      "scheduledExecutionConfigs": []
+    },
+    {
+      "name": "production",
+      "configOverride": {
+        "defaultSchema": "gold",
+        "assertionSchema": "dataform_assertions",
+        "vars": {
+          "environment": "production"
+        }
+      },
+      "scheduledExecutionConfigs": [
+        {
+          "cronSchedule": "0 3 * * *",
+          "timeZone": "Australia/Sydney",
+          "executionSpec": {
+            "tags": ["daily_refresh"]
+          }
+        },
+        {
+          "cronSchedule": "*/30 * * * *",
+          "timeZone": "Australia/Sydney",
+          "executionSpec": {
+            "tags": ["delta"]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "entity": "customers",
+  "version": "v1",
+  "primary_key": "customer_id",
+  "gcs_source": "gs://intelia-hackathon-files/customers.csv",
+  "delta_pattern": "gs://intelia-hackathon-files/batch_0*_customers_delta.csv",
+  "bronze_table": "vishal-sandpit-474523.bronze.ext_customers",
+  "silver_table": "vishal-sandpit-474523.silver.stg_customers",
+  "gold_table": "vishal-sandpit-474523.gold.dim_customers",
+  "columns": [
+    {
+      "name": "customer_id",
+      "type": "STRING",
+      "nullable": false,
+      "pii": true,
+      "sensitive_revenue": false,
+      "description": "Unique identifier for the customer record"
+    },
+    {
+      "name": "first_name",
+      "type": "STRING",
+      "nullable": true,
+      "pii": true,
+      "sensitive_revenue": false,
+      "description": "Customer given name"
+    },
+    {
+      "name": "last_name",
+      "type": "STRING",
+      "nullable": true,
+      "pii": true,
+      "sensitive_revenue": false,
+      "description": "Customer family name"
+    },
+    {
+      "name": "email",
+      "type": "STRING",
+      "nullable": false,
+      "pii": true,
+      "sensitive_revenue": false,
+      "description": "Customer email address — must be unique"
+    },
+    {
+      "name": "phone",
+      "type": "STRING",
+      "nullable": true,
+      "pii": true,
+      "sensitive_revenue": false,
+      "description": "Customer phone number, digits and symbols only"
+    },
+    {
+      "name": "address",
+      "type": "STRING",
+      "nullable": true,
+      "pii": true,
+      "sensitive_revenue": false,
+      "description": "Street address line"
+    },
+    {
+      "name": "city",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "City name"
+    },
+    {
+      "name": "state",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "State or province"
+    },
+    {
+      "name": "country",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Country code or name"
+    },
+    {
+      "name": "postcode",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Postal or ZIP code"
+    },
+    {
+      "name": "created_date",
+      "type": "DATE",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Date the customer account was created in the source system (YYYY-MM-DD)"
+    }
+  ],
+  "version_history": [
+    {
+      "version": "v1",
+      "effective_from": "2024-01-01",
+      "changes": "Initial schema"
+    },
+    {
+      "version": "v2",
+      "effective_from": null,
+      "changes": "Added loyalty_tier column (STRING, nullable)"
+    }
+  ]
+}

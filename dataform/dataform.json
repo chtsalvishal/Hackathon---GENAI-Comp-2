@@ -1,0 +1,11 @@
+{
+  "defaultSchema": "gold",
+  "assertionSchema": "dataform_assertions",
+  "warehouse": "bigquery",
+  "defaultDatabase": "vishal-sandpit-474523",
+  "defaultLocation": "australia-southeast1",
+  "vars": {
+    "execution_date": "",
+    "environment": "production"
+  }
+}

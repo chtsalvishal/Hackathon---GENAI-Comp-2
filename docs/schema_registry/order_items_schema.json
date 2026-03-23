@@ -1,0 +1,75 @@
+{
+  "entity": "order_items",
+  "version": "v1",
+  "primary_key": "order_item_id",
+  "gcs_source": "gs://intelia-hackathon-files/order_items.csv",
+  "delta_pattern": "gs://intelia-hackathon-files/batch_0*_order_items_delta.csv",
+  "bronze_table": "vishal-sandpit-474523.bronze.ext_order_items",
+  "silver_table": "vishal-sandpit-474523.silver.stg_order_items",
+  "gold_table": null,
+  "columns": [
+    {
+      "name": "order_item_id",
+      "type": "STRING",
+      "nullable": false,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Unique identifier for the order line item"
+    },
+    {
+      "name": "order_id",
+      "type": "STRING",
+      "nullable": false,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Foreign key referencing orders.order_id"
+    },
+    {
+      "name": "product_id",
+      "type": "STRING",
+      "nullable": false,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Foreign key referencing products.product_id"
+    },
+    {
+      "name": "quantity",
+      "type": "INT64",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Number of units of this product in the order line"
+    },
+    {
+      "name": "unit_price",
+      "type": "NUMERIC",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": true,
+      "description": "Agreed price per unit at time of purchase"
+    },
+    {
+      "name": "discount",
+      "type": "NUMERIC",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Discount amount applied to this line item"
+    },
+    {
+      "name": "subtotal",
+      "type": "NUMERIC",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": true,
+      "description": "Line total after discount: (quantity * unit_price) - discount"
+    }
+  ],
+  "version_history": [
+    {
+      "version": "v1",
+      "effective_from": "2024-01-01",
+      "changes": "Initial schema"
+    }
+  ]
+}

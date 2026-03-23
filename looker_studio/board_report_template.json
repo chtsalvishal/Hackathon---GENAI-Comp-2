@@ -1,0 +1,78 @@
+{
+  "report_name": "Intelia Warehouse — Board Intelligence Report",
+  "description": "Branded board-presentation report for C-suite. Shareable as PDF or live interactive link.",
+  "created_date": "2026-03-23",
+  "theme": {
+    "primary_color": "#1A73E8",
+    "secondary_color": "#34A853",
+    "accent_color": "#FBBC04",
+    "font_family": "Google Sans",
+    "background_color": "#F8F9FA"
+  },
+  "data_sources": [
+    {
+      "name": "Revenue Summary",
+      "type": "bigquery",
+      "project": "vishal-sandpit-474523",
+      "dataset": "gold",
+      "table": "mart_revenue_summary"
+    },
+    {
+      "name": "Customer AI Insights",
+      "type": "bigquery",
+      "project": "vishal-sandpit-474523",
+      "dataset": "ai",
+      "table": "customer_concierge"
+    },
+    {
+      "name": "Product Performance",
+      "type": "bigquery",
+      "project": "vishal-sandpit-474523",
+      "dataset": "ai",
+      "table": "product_upsell"
+    },
+    {
+      "name": "Platform Metrics",
+      "type": "bigquery",
+      "project": "vishal-sandpit-474523",
+      "query": "SELECT DATE(creation_time) AS date, COUNT(*) AS queries, COUNTIF(query LIKE '%ai.%') AS ai_queries FROM `region-australia-southeast1`.INFORMATION_SCHEMA.JOBS_BY_PROJECT WHERE DATE(creation_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) GROUP BY 1"
+    }
+  ],
+  "pages": [
+    {
+      "page_id": "executive_summary",
+      "title": "Executive Summary",
+      "layout": "two_column",
+      "components": [
+        { "type": "scorecard", "title": "Total Revenue (YTD)", "metric": "SUM(gross_revenue)", "data_source": "Revenue Summary" },
+        { "type": "scorecard", "title": "Active Customers", "metric": "COUNT(customer_id) WHERE churn_risk='Active'", "data_source": "Customer AI Insights" },
+        { "type": "scorecard", "title": "AI Adoption Rate", "metric": "ai_queries / total_queries", "data_source": "Platform Metrics" },
+        { "type": "time_series", "title": "Revenue Trend", "dimension": "summary_date", "metric": "gross_revenue", "data_source": "Revenue Summary" }
+      ]
+    },
+    {
+      "page_id": "cco_view",
+      "title": "CCO — Customer Intelligence",
+      "components": [
+        { "type": "bar_chart", "title": "Revenue by Month vs Target", "dimension": "summary_date", "metrics": ["gross_revenue"], "data_source": "Revenue Summary" },
+        { "type": "table", "title": "AI Customer Insights", "fields": ["customer_name", "customer_segment", "churn_risk", "total_lifetime_value", "gemini_persona_and_strategy"], "data_source": "Customer AI Insights" }
+      ]
+    },
+    {
+      "page_id": "cpo_view",
+      "title": "CPO — Product Intelligence",
+      "components": [
+        { "type": "bar_chart", "title": "Revenue by Category", "dimension": "category", "metric": "total_revenue", "data_source": "Product Performance" },
+        { "type": "table", "title": "AI Product Strategies", "fields": ["product_name", "category", "total_revenue", "unique_buyers", "gemini_upsell_strategy"], "data_source": "Product Performance" }
+      ]
+    },
+    {
+      "page_id": "cto_view",
+      "title": "CTO — Platform & Governance",
+      "components": [
+        { "type": "scorecard", "title": "AI Adoption %", "metric": "ai_adoption_pct", "data_source": "Platform Metrics" },
+        { "type": "time_series", "title": "Query Performance", "dimension": "date", "metric": "avg_exec_secs", "data_source": "Platform Metrics" }
+      ]
+    }
+  ]
+}

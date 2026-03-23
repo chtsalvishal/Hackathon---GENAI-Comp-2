@@ -1,0 +1,91 @@
+{
+  "entity": "products",
+  "version": "v1",
+  "primary_key": "product_id",
+  "gcs_source": "gs://intelia-hackathon-files/products.csv",
+  "delta_pattern": "gs://intelia-hackathon-files/batch_0*_products_delta.csv",
+  "bronze_table": "vishal-sandpit-474523.bronze.ext_products",
+  "silver_table": "vishal-sandpit-474523.silver.stg_products",
+  "gold_table": "vishal-sandpit-474523.gold.dim_products",
+  "columns": [
+    {
+      "name": "product_id",
+      "type": "STRING",
+      "nullable": false,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Unique identifier for the product"
+    },
+    {
+      "name": "product_name",
+      "type": "STRING",
+      "nullable": false,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Human-readable product display name"
+    },
+    {
+      "name": "category",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Top-level merchandising category"
+    },
+    {
+      "name": "sub_category",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Sub-category within the parent category"
+    },
+    {
+      "name": "brand",
+      "type": "STRING",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Product brand or manufacturer"
+    },
+    {
+      "name": "unit_price",
+      "type": "NUMERIC",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": true,
+      "description": "Current retail selling price per unit"
+    },
+    {
+      "name": "cost_price",
+      "type": "NUMERIC",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": true,
+      "description": "Cost of goods per unit — internal use only"
+    },
+    {
+      "name": "stock_quantity",
+      "type": "INT64",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Current units available in stock"
+    },
+    {
+      "name": "created_at",
+      "type": "TIMESTAMP",
+      "nullable": true,
+      "pii": false,
+      "sensitive_revenue": false,
+      "description": "Timestamp the product record was created in the source system (YYYY-MM-DD HH:MM:SS)"
+    }
+  ],
+  "version_history": [
+    {
+      "version": "v1",
+      "effective_from": "2024-01-01",
+      "changes": "Initial schema"
+    }
+  ]
+}

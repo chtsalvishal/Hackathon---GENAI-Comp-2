@@ -1,0 +1,55 @@
+config {
+  type: "table",
+  schema: "gold",
+  description: "Pre-aggregated monthly revenue summary by country. Partitioned by summary_date (month), clustered by country.",
+  tags: ["gold", "daily_refresh", "sensitive_revenue"],
+  bigquery: {
+    partitionBy: "summary_date",
+    clusterBy: ["country"]
+  },
+  assertions: {
+    nonNull: ["summary_date", "country"]
+  }
+}
+
+WITH first_orders AS (
+  -- Identify the month in which each customer placed their very first order
+  SELECT
+    customer_id,
+    DATE_TRUNC(MIN(order_date), MONTH) AS first_order_month
+  FROM ${ref("stg_orders")}
+  GROUP BY customer_id
+),
+
+orders_enriched AS (
+  SELECT
+    o.order_id,
+    o.customer_id,
+    o.order_date,
+    o.total_amount,
+    o.shipping_country                                   AS country,
+    DATE_TRUNC(o.order_date, MONTH)                      AS order_month,
+    f.first_order_month
+  FROM ${ref("stg_orders")} o
+  JOIN first_orders f USING (customer_id)
+  WHERE o.order_date IS NOT NULL
+)
+
+SELECT
+  order_month                                            AS summary_date,
+  country,
+  COUNT(DISTINCT order_id)                               AS order_count,
+  COUNT(DISTINCT customer_id)                            AS unique_customers,
+  SUM(total_amount)                                      AS gross_revenue,
+  ROUND(AVG(total_amount), 2)                            AS avg_order_value,
+  COUNT(DISTINCT CASE
+    WHEN first_order_month = order_month THEN customer_id
+  END)                                                   AS new_customers,
+  COUNT(DISTINCT CASE
+    WHEN first_order_month < order_month  THEN customer_id
+  END)                                                   AS repeat_customers,
+  CURRENT_TIMESTAMP()                                    AS updated_at
+FROM orders_enriched
+GROUP BY
+  order_month,
+  country
