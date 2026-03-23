@@ -1,0 +1,12 @@
+config {
+  type: "assertion",
+  tags: ["quality", "gold"],
+  description: "Every order in silver.stg_orders must have a matching customer_id in silver.stg_customers. Orphaned orders indicate a pipeline or source data defect."
+}
+
+SELECT
+  o.order_id,
+  o.customer_id
+FROM ${ref("stg_orders")} o
+LEFT JOIN ${ref("stg_customers")} c USING (customer_id)
+WHERE c.customer_id IS NULL

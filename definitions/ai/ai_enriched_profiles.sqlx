@@ -1,0 +1,36 @@
+config {
+  type: "view",
+  schema: "ai",
+  description: "Fully enriched customer profiles — raw data + Gemini insights combined",
+  tags: ["ai"]
+}
+
+SELECT
+  cc.customer_id,
+  cc.customer_name,
+  cc.customer_segment,
+  cc.churn_risk,
+  cc.country,
+  -- Raw metrics
+  cc.total_lifetime_value,
+  cc.order_count,
+  cc.avg_order_value,
+  cc.last_purchase_date,
+  cc.days_since_last_purchase,
+  -- AI insights
+  cc.gemini_persona_and_strategy,
+  cc.generation_status,
+  cc.generated_at,
+  -- Top product category from orders
+  top_cat.top_category
+FROM ${ref("customer_concierge")} cc
+LEFT JOIN (
+  SELECT
+    o.customer_id,
+    p.category AS top_category
+  FROM ${ref("fct_orders")} o
+  JOIN ${ref("stg_order_items")} oi USING (order_id)
+  JOIN ${ref("dim_products")} p USING (product_id)
+  GROUP BY 1, 2
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY o.customer_id ORDER BY SUM(oi.subtotal) DESC) = 1
+) top_cat USING (customer_id)

@@ -1,0 +1,37 @@
+config {
+  type: "table",
+  schema: "gold",
+  description: "Product dimension with margin calculation and active status flag. Clustered by category.",
+  tags: ["gold", "daily_refresh"],
+  bigquery: {
+    clusterBy: ["category", "brand"]
+  },
+  assertions: {
+    uniqueKey: ["product_id"],
+    nonNull: ["product_id", "product_name"]
+  }
+}
+
+SELECT
+  p.product_id,
+  p.product_name,
+  p.category,
+  p.sub_category,
+  p.brand,
+  p.unit_price,
+  p.cost_price,
+  CASE
+    WHEN p.unit_price IS NOT NULL
+      AND p.cost_price IS NOT NULL
+      AND p.unit_price > 0
+    THEN ROUND((p.unit_price - p.cost_price) / p.unit_price * 100, 2)
+    ELSE NULL
+  END                                     AS margin_pct,
+  p.stock_quantity,
+  CASE
+    WHEN p.stock_quantity > 0 THEN TRUE
+    ELSE FALSE
+  END                                     AS is_active,
+  p.created_at,
+  p.updated_at
+FROM ${ref("stg_products")} p

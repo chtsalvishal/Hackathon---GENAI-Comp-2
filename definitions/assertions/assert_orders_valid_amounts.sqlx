@@ -1,0 +1,19 @@
+config {
+  type: "assertion",
+  tags: ["quality", "silver"],
+  description: "total_amount must be between 0 (exclusive) and 1,000,000 (exclusive). order_date must not be in the future."
+}
+
+SELECT
+  order_id,
+  customer_id,
+  order_date,
+  total_amount
+FROM ${ref("stg_orders")}
+WHERE
+  -- Amount must be a positive finite value within a plausible range
+  total_amount IS NULL
+  OR total_amount <= 0
+  OR total_amount >= 1000000
+  -- Order date must not be set in the future
+  OR order_date > CURRENT_DATE()
