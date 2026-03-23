@@ -4,21 +4,23 @@ config {
   description: "Cleaned and typed orders. Revenue columns tagged with sensitive_revenue policy tag.",
   tags: ["silver", "daily_refresh"],
   columns: {
-    order_id: { description: "Unique order identifier" },
-    customer_id: { description: "Foreign key to stg_customers" },
-    order_date: { description: "Date the order was placed" },
-    status: { description: "Order fulfilment status" },
-    shipping_address: { description: "Shipping street address" },
-    shipping_city: { description: "Shipping city" },
-    shipping_state: { description: "Shipping state or province" },
-    shipping_country: { description: "Shipping country" },
+    order_id:               { description: "Unique order identifier" },
+    customer_id:            { description: "Foreign key to stg_customers" },
+    order_date:             { description: "Date the order was placed" },
+    status:                 { description: "Order fulfilment status" },
     total_amount: {
       description: "Total order value in base currency",
       bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/4390288473413043579"]
     },
-    created_at: { description: "Timestamp the order record was created in source system" },
-    source_file: { description: "GCS source file name" },
-    updated_at: { description: "Timestamp this record was last processed" }
+    subtotal: {
+      description: "Order subtotal before tax",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/4390288473413043579"]
+    },
+    shipping_city:          { description: "Shipping city" },
+    shipping_country:       { description: "Shipping country" },
+    is_first_order:         { description: "True if this is the customer's first order" },
+    source_file:            { description: "GCS source file name" },
+    updated_at:             { description: "Timestamp this record was last processed" }
   },
   assertions: {
     uniqueKey: ["order_id"],
@@ -30,19 +32,18 @@ SELECT
   TRIM(order_id)                               AS order_id,
   TRIM(customer_id)                            AS customer_id,
   SAFE.PARSE_DATE('%Y-%m-%d', order_date)      AS order_date,
-  TRIM(LOWER(status))                          AS status,
-  TRIM(shipping_address)                       AS shipping_address,
-  TRIM(UPPER(shipping_city))                   AS shipping_city,
-  TRIM(UPPER(shipping_state))                  AS shipping_state,
-  TRIM(UPPER(shipping_country))                AS shipping_country,
+  TRIM(LOWER(order_status))                    AS status,
   SAFE_CAST(total_amount AS NUMERIC)           AS total_amount,
-  SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', created_at) AS created_at,
-  source_file,
+  SAFE_CAST(subtotal AS NUMERIC)               AS subtotal,
+  TRIM(UPPER(shipping_address_city))           AS shipping_city,
+  TRIM(UPPER(shipping_address_country))        AS shipping_country,
+  SAFE_CAST(is_first_order AS BOOL)            AS is_first_order,
+  _FILE_NAME AS source_file,
   CURRENT_TIMESTAMP()                          AS updated_at
 FROM (
   SELECT
     *,
-    _FILE_NAME AS source_file,
+    _FILE_NAME,
     ROW_NUMBER() OVER (
       PARTITION BY order_id
       ORDER BY _FILE_NAME DESC

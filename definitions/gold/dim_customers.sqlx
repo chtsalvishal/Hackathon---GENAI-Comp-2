@@ -20,9 +20,7 @@ SELECT
   c.email,
   c.phone,
   c.city,
-  c.state,
   c.country,
-  c.postcode,
   c.created_date,
   COUNT(DISTINCT o.order_id)                           AS order_count,
   COALESCE(SUM(o.total_amount), 0)                     AS total_lifetime_value,
@@ -52,7 +50,5 @@ GROUP BY
   c.email,
   c.phone,
   c.city,
-  c.state,
   c.country,
-  c.postcode,
   c.created_date

@@ -1,29 +1,37 @@
 config {
   type: "operations",
   schema: "bronze",
-  description: "External table over gs://intelia-hackathon-files/customers*.csv — includes core file and all delta batches",
+  description: "External table over gs://intelia-hackathon-files/customers.csv — initial customer load",
   tags: ["bronze", "daily_refresh"],
   hasOutput: true
 }
 
 CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_customers` (
-  customer_id  STRING,
-  first_name   STRING,
-  last_name    STRING,
-  email        STRING,
-  phone        STRING,
-  address      STRING,
-  city         STRING,
-  state        STRING,
-  country      STRING,
-  postcode     STRING,
-  created_date STRING
+  customer_id          STRING,
+  first_name           STRING,
+  last_name            STRING,
+  email                STRING,
+  phone                STRING,
+  date_of_birth        STRING,
+  gender               STRING,
+  registration_date    STRING,
+  country              STRING,
+  city                 STRING,
+  acquisition_channel  STRING,
+  customer_tier        STRING,
+  is_email_subscribed  STRING,
+  is_sms_subscribed    STRING,
+  preferred_device     STRING,
+  preferred_category   STRING,
+  loyalty_points       STRING,
+  account_status       STRING,
+  last_login_date      STRING,
+  referral_source_id   STRING,
+  marketing_segment    STRING
 )
 OPTIONS (
   format              = 'CSV',
-  uris                = [
-    'gs://intelia-hackathon-files/customers.csv'
-  ],
+  uris                = ['gs://intelia-hackathon-files/customers.csv'],
   skip_leading_rows   = 1,
   allow_quoted_newlines = true,
   allow_jagged_rows   = true

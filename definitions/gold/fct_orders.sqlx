@@ -36,14 +36,11 @@ order_ranked AS (
     o.order_date,
     o.status,
     o.total_amount,
-    o.shipping_address,
     o.shipping_city,
-    o.shipping_state,
     o.shipping_country,
-    o.created_at,
     RANK() OVER (
       PARTITION BY o.customer_id
-      ORDER BY o.order_date ASC, o.created_at ASC
+      ORDER BY o.order_date ASC
     ) AS order_rank
   FROM ${ref("stg_orders")} o
 )
@@ -56,12 +53,9 @@ SELECT
   r.total_amount,
   COALESCE(i.item_count, 0)                          AS item_count,
   COALESCE(i.avg_item_price, 0)                      AS avg_item_price,
-  r.shipping_address,
   r.shipping_city,
-  r.shipping_state,
   r.shipping_country,
   CASE WHEN r.order_rank = 1 THEN TRUE ELSE FALSE END AS is_first_order,
-  r.created_at,
   CURRENT_TIMESTAMP()                                AS updated_at
 FROM order_ranked r
 LEFT JOIN order_items_agg i USING (order_id)

@@ -24,14 +24,13 @@ config {
       description: "Customer phone number",
       bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/7825657596165317938"]
     },
-    address: { description: "Street address" },
-    city: { description: "City name (uppercased)" },
-    state: { description: "State or province (uppercased)" },
-    country: { description: "Country code or name (uppercased)" },
-    postcode: { description: "Postal code" },
-    created_date: { description: "Date the customer record was created" },
-    source_file: { description: "GCS source file name" },
-    updated_at: { description: "Timestamp this record was last processed" }
+    city:             { description: "City" },
+    country:          { description: "Country" },
+    customer_segment: { description: "Customer tier / segment (Gold, Silver, Bronze)" },
+    account_status:   { description: "Active, Inactive, Suspended" },
+    created_date:     { description: "Date the customer registered" },
+    source_file:      { description: "GCS source file name" },
+    updated_at:       { description: "Timestamp this record was last processed" }
   },
   assertions: {
     uniqueKey: ["customer_id"],
@@ -40,23 +39,22 @@ config {
 }
 
 SELECT
-  TRIM(customer_id)                         AS customer_id,
-  TRIM(LOWER(first_name))                   AS first_name,
-  TRIM(LOWER(last_name))                    AS last_name,
-  TRIM(LOWER(email))                        AS email,
-  REGEXP_REPLACE(TRIM(phone), r'\s+', '')   AS phone,
-  TRIM(address)                             AS address,
-  TRIM(UPPER(city))                         AS city,
-  TRIM(UPPER(state))                        AS state,
-  TRIM(UPPER(country))                      AS country,
-  TRIM(postcode)                            AS postcode,
-  SAFE.PARSE_DATE('%Y-%m-%d', created_date) AS created_date,
-  source_file,
-  CURRENT_TIMESTAMP()                       AS updated_at
+  TRIM(customer_id)                              AS customer_id,
+  TRIM(LOWER(first_name))                        AS first_name,
+  TRIM(LOWER(last_name))                         AS last_name,
+  TRIM(LOWER(email))                             AS email,
+  TRIM(phone)                                    AS phone,
+  TRIM(UPPER(city))                              AS city,
+  TRIM(UPPER(country))                           AS country,
+  TRIM(customer_tier)                            AS customer_segment,
+  TRIM(account_status)                           AS account_status,
+  SAFE.PARSE_DATE('%Y-%m-%d', registration_date) AS created_date,
+  _FILE_NAME AS source_file,
+  CURRENT_TIMESTAMP()                            AS updated_at
 FROM (
   SELECT
     *,
-    _FILE_NAME AS source_file,
+    _FILE_NAME,
     ROW_NUMBER() OVER (
       PARTITION BY customer_id
       ORDER BY _FILE_NAME DESC
