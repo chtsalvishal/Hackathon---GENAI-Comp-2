@@ -19,14 +19,13 @@ IF NOT batch_already_processed THEN
 
   -- Log run start
   INSERT INTO `vishal-sandpit-474523.governance.batch_audit_log`
-    (batch_id, file_name, entity, status, started_at, run_by)
+    (batch_id, source_file, entity, status, started_at)
   VALUES (
     CONCAT('delta_order_items_', FORMAT_DATE('%Y%m%d', CURRENT_DATE())),
     'gs://intelia-hackathon-files/batch_0*_order_items_delta.csv',
     'order_items',
     'RUNNING',
-    CURRENT_TIMESTAMP(),
-    SESSION_USER()
+    CURRENT_TIMESTAMP()
   );
 
   -- MERGE delta records into silver staging table
@@ -40,9 +39,9 @@ IF NOT batch_already_processed THEN
       SAFE_CAST(unit_price AS NUMERIC) AS unit_price,
       SAFE_CAST(discount   AS NUMERIC) AS discount,
       SAFE_CAST(subtotal   AS NUMERIC) AS subtotal,
-      source_file
+      _FILE_NAME AS source_file
     FROM `vishal-sandpit-474523.bronze.ext_order_items`
-    WHERE source_file LIKE '%batch_0%'
+    WHERE _FILE_NAME LIKE '%batch_0%'
       AND order_item_id IS NOT NULL
       AND TRIM(order_item_id) != ''
       AND order_id IS NOT NULL
@@ -87,7 +86,7 @@ IF NOT batch_already_processed THEN
   SET
     status         = 'COMPLETED',
     completed_at   = CURRENT_TIMESTAMP(),
-    rows_processed = @@row_count
+    rows_merged = @@row_count
   WHERE batch_id = CONCAT('delta_order_items_', FORMAT_DATE('%Y%m%d', CURRENT_DATE()))
     AND status = 'RUNNING';
 

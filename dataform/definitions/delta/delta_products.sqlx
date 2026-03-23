@@ -19,14 +19,13 @@ IF NOT batch_already_processed THEN
 
   -- Log run start
   INSERT INTO `vishal-sandpit-474523.governance.batch_audit_log`
-    (batch_id, file_name, entity, status, started_at, run_by)
+    (batch_id, source_file, entity, status, started_at)
   VALUES (
     CONCAT('delta_products_', FORMAT_DATE('%Y%m%d', CURRENT_DATE())),
     'gs://intelia-hackathon-files/batch_0*_products_delta.csv',
     'products',
     'RUNNING',
-    CURRENT_TIMESTAMP(),
-    SESSION_USER()
+    CURRENT_TIMESTAMP()
   );
 
   -- MERGE delta records into gold dimension
@@ -42,9 +41,9 @@ IF NOT batch_already_processed THEN
       SAFE_CAST(cost_price     AS NUMERIC)                    AS cost_price,
       SAFE_CAST(stock_quantity AS INT64)                      AS stock_quantity,
       SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', created_at)  AS created_at,
-      source_file
+      _FILE_NAME AS source_file
     FROM `vishal-sandpit-474523.bronze.ext_products`
-    WHERE source_file LIKE '%batch_0%'
+    WHERE _FILE_NAME LIKE '%batch_0%'
       AND product_id IS NOT NULL
       AND TRIM(product_id) != ''
   ) AS source
@@ -107,7 +106,7 @@ IF NOT batch_already_processed THEN
   SET
     status         = 'COMPLETED',
     completed_at   = CURRENT_TIMESTAMP(),
-    rows_processed = @@row_count
+    rows_merged = @@row_count
   WHERE batch_id = CONCAT('delta_products_', FORMAT_DATE('%Y%m%d', CURRENT_DATE()))
     AND status = 'RUNNING';
 

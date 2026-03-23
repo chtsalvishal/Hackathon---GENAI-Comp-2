@@ -7,4 +7,4 @@ config {
 
 CREATE OR REPLACE MODEL `vishal-sandpit-474523.ai.gemini_pro_model`
 REMOTE WITH CONNECTION `vishal-sandpit-474523.australia-southeast1.gemini-pro-connection`
-OPTIONS (endpoint = 'gemini-1.5-pro');
+OPTIONS (endpoint = 'gemini-1.5-flash-001');
