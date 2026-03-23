@@ -1,12 +1,12 @@
 config {
   type: "operations",
   schema: "bronze",
-  description: "External table over gs://intelia-hackathon-files/products*.csv — includes core file and all delta batches",
-  tags: ["bronze", "daily_refresh"],
+  description: "CDC delta feed for products — batch_0* files from intelia-hackathon-files",
+  tags: ["bronze", "delta"],
   hasOutput: true
 }
 
-CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_products` (
+CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_products_delta` (
   product_id         STRING,
   sku                STRING,
   product_name       STRING,
@@ -25,13 +25,14 @@ CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_products` (
   average_rating     STRING,
   review_count       STRING,
   return_rate        STRING,
-  tags               STRING
+  tags               STRING,
+  _delta_type        STRING,
+  _batch_id          STRING,
+  _batch_date        STRING
 )
 OPTIONS (
   format              = 'CSV',
-  uris                = [
-    'gs://intelia-hackathon-files/products.csv'
-  ],
+  uris                = ['gs://intelia-hackathon-files/batch_0*_products_delta.csv'],
   skip_leading_rows   = 1,
   allow_quoted_newlines = true,
   allow_jagged_rows   = true

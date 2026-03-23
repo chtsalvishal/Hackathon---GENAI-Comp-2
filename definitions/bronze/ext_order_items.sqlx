@@ -18,8 +18,7 @@ CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_order_items` (
 OPTIONS (
   format              = 'CSV',
   uris                = [
-    'gs://intelia-hackathon-files/order_items.csv',
-    'gs://intelia-hackathon-files/batch_0*_order_items_delta.csv'
+    'gs://intelia-hackathon-files/order_items.csv'
   ],
   skip_leading_rows   = 1,
   allow_quoted_newlines = true,

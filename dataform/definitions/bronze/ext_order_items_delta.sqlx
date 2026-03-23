@@ -1,0 +1,30 @@
+config {
+  type: "operations",
+  schema: "bronze",
+  description: "CDC delta feed for order_items — batch_0* files from intelia-hackathon-files",
+  tags: ["bronze", "delta"],
+  hasOutput: true
+}
+
+CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_order_items_delta` (
+  order_item_id         STRING,
+  order_id              STRING,
+  product_id            STRING,
+  quantity              STRING,
+  unit_price_at_purchase STRING,
+  discount_applied      STRING,
+  line_total            STRING,
+  is_returned           STRING,
+  return_reason         STRING,
+  return_date           STRING,
+  _delta_type           STRING,
+  _batch_id             STRING,
+  _batch_date           STRING
+)
+OPTIONS (
+  format              = 'CSV',
+  uris                = ['gs://intelia-hackathon-files/batch_0*_order_items_delta.csv'],
+  skip_leading_rows   = 1,
+  allow_quoted_newlines = true,
+  allow_jagged_rows   = true
+);

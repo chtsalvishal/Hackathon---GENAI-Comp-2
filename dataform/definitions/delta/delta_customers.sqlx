@@ -3,7 +3,7 @@ config {
   schema: "gold",
   tags: ["delta"],
   description: "MERGE delta batch customers into gold.dim_customers with idempotency guard via batch_audit_log",
-  dependencies: ["dim_customers", "batch_audit_log"]
+  dependencies: ["dim_customers", "batch_audit_log", "ext_customers_delta"]
 }
 
 -- Idempotency guard: skip if this batch was already successfully processed today
@@ -37,32 +37,29 @@ IF NOT batch_already_processed THEN
       TRIM(LOWER(first_name))                   AS first_name,
       TRIM(LOWER(last_name))                    AS last_name,
       TRIM(LOWER(email))                        AS email,
-      REGEXP_REPLACE(TRIM(phone), r'\s+', '')   AS phone,
-      TRIM(address)                             AS address,
+      TRIM(phone)                               AS phone,
       TRIM(UPPER(city))                         AS city,
-      TRIM(UPPER(state))                        AS state,
       TRIM(UPPER(country))                      AS country,
-      TRIM(postcode)                            AS postcode,
-      SAFE.PARSE_DATE('%Y-%m-%d', created_date) AS created_date,
+      TRIM(customer_tier)                       AS customer_segment,
+      TRIM(account_status)                      AS churn_risk,
       _FILE_NAME AS source_file
-    FROM `vishal-sandpit-474523.bronze.ext_customers`
-    WHERE _FILE_NAME LIKE '%batch_0%'
-      AND customer_id IS NOT NULL
+    FROM `vishal-sandpit-474523.bronze.ext_customers_delta`
+    WHERE customer_id IS NOT NULL
       AND TRIM(customer_id) != ''
+      AND _delta_type IN ('INSERT', 'UPDATE', 'UPSERT')
   ) AS source
   ON target.customer_id = source.customer_id
 
   WHEN MATCHED THEN UPDATE SET
-    target.first_name   = source.first_name,
-    target.last_name    = source.last_name,
-    target.customer_name = CONCAT(source.first_name, ' ', source.last_name),
-    target.email        = source.email,
-    target.phone        = source.phone,
-    target.city         = source.city,
-    target.state        = source.state,
-    target.country      = source.country,
-    target.postcode     = source.postcode,
-    target.updated_at   = CURRENT_TIMESTAMP()
+    target.first_name       = COALESCE(source.first_name, target.first_name),
+    target.last_name        = COALESCE(source.last_name, target.last_name),
+    target.email            = COALESCE(source.email, target.email),
+    target.phone            = COALESCE(source.phone, target.phone),
+    target.city             = COALESCE(source.city, target.city),
+    target.country          = COALESCE(source.country, target.country),
+    target.customer_segment = COALESCE(source.customer_segment, target.customer_segment),
+    target.churn_risk       = COALESCE(source.churn_risk, target.churn_risk),
+    target.updated_at       = CURRENT_TIMESTAMP()
 
   WHEN NOT MATCHED THEN INSERT (
     customer_id,
@@ -72,10 +69,7 @@ IF NOT batch_already_processed THEN
     email,
     phone,
     city,
-    state,
     country,
-    postcode,
-    created_date,
     order_count,
     total_lifetime_value,
     avg_order_value,
@@ -86,19 +80,16 @@ IF NOT batch_already_processed THEN
     source.customer_id,
     source.first_name,
     source.last_name,
-    CONCAT(source.first_name, ' ', source.last_name),
+    CONCAT(COALESCE(source.first_name,''), ' ', COALESCE(source.last_name,'')),
     source.email,
     source.phone,
     source.city,
-    source.state,
     source.country,
-    source.postcode,
-    source.created_date,
     0,
     0,
     0,
-    'Bronze',
-    'Active',
+    COALESCE(source.customer_segment, 'Bronze'),
+    COALESCE(source.churn_risk, 'Active'),
     CURRENT_TIMESTAMP()
   );
 

@@ -3,7 +3,7 @@ config {
   schema: "gold",
   tags: ["delta"],
   description: "MERGE delta batch order_items into silver.stg_order_items with idempotency guard via batch_audit_log",
-  dependencies: ["stg_order_items", "batch_audit_log"]
+  dependencies: ["stg_order_items", "batch_audit_log", "ext_order_items_delta"]
 }
 
 -- Idempotency guard: skip if this batch was already successfully processed today
@@ -33,20 +33,20 @@ IF NOT batch_already_processed THEN
   MERGE `vishal-sandpit-474523.silver.stg_order_items` AS target
   USING (
     SELECT
-      TRIM(order_item_id)              AS order_item_id,
-      TRIM(order_id)                   AS order_id,
-      TRIM(product_id)                 AS product_id,
-      SAFE_CAST(quantity   AS INT64)   AS quantity,
-      SAFE_CAST(unit_price AS NUMERIC) AS unit_price,
-      SAFE_CAST(discount   AS NUMERIC) AS discount,
-      SAFE_CAST(subtotal   AS NUMERIC) AS subtotal,
+      TRIM(order_item_id)                      AS order_item_id,
+      TRIM(order_id)                           AS order_id,
+      TRIM(product_id)                         AS product_id,
+      SAFE_CAST(quantity AS INT64)             AS quantity,
+      SAFE_CAST(unit_price_at_purchase AS NUMERIC) AS unit_price,
+      SAFE_CAST(discount_applied AS NUMERIC)   AS discount,
+      SAFE_CAST(line_total AS NUMERIC)         AS subtotal,
       _FILE_NAME AS source_file
-    FROM `vishal-sandpit-474523.bronze.ext_order_items`
-    WHERE _FILE_NAME LIKE '%batch_0%'
-      AND order_item_id IS NOT NULL
+    FROM `vishal-sandpit-474523.bronze.ext_order_items_delta`
+    WHERE order_item_id IS NOT NULL
       AND TRIM(order_item_id) != ''
       AND order_id IS NOT NULL
       AND TRIM(order_id) != ''
+      AND _delta_type IN ('INSERT', 'UPDATE', 'UPSERT')
   ) AS source
   ON target.order_item_id = source.order_item_id
 

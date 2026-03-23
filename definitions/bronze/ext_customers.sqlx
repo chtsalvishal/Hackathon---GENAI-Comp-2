@@ -22,8 +22,7 @@ CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_customers` (
 OPTIONS (
   format              = 'CSV',
   uris                = [
-    'gs://intelia-hackathon-files/customers.csv',
-    'gs://intelia-hackathon-files/batch_0*_customers_delta.csv'
+    'gs://intelia-hackathon-files/customers.csv'
   ],
   skip_leading_rows   = 1,
   allow_quoted_newlines = true,
