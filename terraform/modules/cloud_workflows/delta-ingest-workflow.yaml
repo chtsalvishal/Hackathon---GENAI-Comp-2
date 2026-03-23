@@ -1,0 +1,113 @@
+main:
+  params: [event]
+  steps:
+    - init:
+        assign:
+          - project_id: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - location: ${sys.get_env("GOOGLE_CLOUD_LOCATION")}
+          - repository: "intelia-warehouse"
+          - tag: "delta"
+          - dataform_base: ${"https://dataform.googleapis.com/v1beta1/projects/" + project_id + "/locations/" + location + "/repositories/" + repository}
+
+    - log_event:
+        call: sys.log
+        args:
+          text: ${"delta-ingest triggered by event: " + json.encode_to_string(event)}
+          severity: INFO
+
+    - create_compilation:
+        call: http.post
+        args:
+          url: ${dataform_base + "/compilationResults"}
+          auth:
+            type: OAuth2
+          body:
+            gitCommitish: "main"
+        result: compile_resp
+
+    - check_compile:
+        switch:
+          - condition: ${compile_resp.code != 200}
+            raise: ${"Compilation failed with HTTP " + string(compile_resp.code)}
+
+    - extract_compilation_name:
+        assign:
+          - compilation_name: ${compile_resp.body.name}
+
+    - log_compilation:
+        call: sys.log
+        args:
+          text: ${"Compilation result: " + compilation_name}
+          severity: INFO
+
+    - create_invocation:
+        call: http.post
+        args:
+          url: ${dataform_base + "/workflowInvocations"}
+          auth:
+            type: OAuth2
+          body:
+            compilationResult: ${compilation_name}
+            invocationConfig:
+              includedTags:
+                - ${tag}
+              transitiveDependenciesIncluded: true
+              transitiveDependentsIncluded: false
+        result: invoke_resp
+
+    - check_invoke_created:
+        switch:
+          - condition: ${invoke_resp.code != 200}
+            raise: ${"Invocation creation failed with HTTP " + string(invoke_resp.code)}
+
+    - extract_invocation_name:
+        assign:
+          - invocation_name: ${invoke_resp.body.name}
+          - poll_url: ${"https://dataform.googleapis.com/v1beta1/" + invocation_name}
+
+    - log_invocation:
+        call: sys.log
+        args:
+          text: ${"Invocation started: " + invocation_name}
+          severity: INFO
+
+    - poll_loop:
+        steps:
+          - poll:
+              call: http.get
+              args:
+                url: ${poll_url}
+                auth:
+                  type: OAuth2
+              result: poll_resp
+
+          - check_state:
+              switch:
+                - condition: ${poll_resp.body.state == "SUCCEEDED"}
+                  next: succeeded
+                - condition: ${poll_resp.body.state == "FAILED"}
+                  next: failed
+                - condition: ${poll_resp.body.state == "CANCELING" or poll_resp.body.state == "CANCELLED"}
+                  next: cancelled
+
+          - wait:
+              call: sys.sleep
+              args:
+                seconds: 30
+              next: poll
+
+    - succeeded:
+        call: sys.log
+        args:
+          text: ${"Invocation SUCCEEDED: " + invocation_name}
+          severity: INFO
+        next: done
+
+    - failed:
+        raise: ${"Dataform invocation FAILED: " + invocation_name + " | " + json.encode_to_string(poll_resp.body)}
+
+    - cancelled:
+        raise: ${"Dataform invocation CANCELLED: " + invocation_name}
+
+    - done:
+        return: ${invocation_name}

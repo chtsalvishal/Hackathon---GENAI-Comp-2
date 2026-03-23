@@ -13,3 +13,9 @@ variable "billing_account_id" {
   description = "The billing account ID linked to the GCP project, used for budget alerts."
   type        = string
 }
+
+variable "github_repo" {
+  description = "GitHub repository in owner/name format (e.g. 'chtsalvishal/Hackathon---GENAI-Comp-2')."
+  type        = string
+  default     = "chtsalvishal/Hackathon---GENAI-Comp-2"
+}

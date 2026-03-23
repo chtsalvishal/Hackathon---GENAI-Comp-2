@@ -8,7 +8,7 @@ variable "dataform_sa_email" {
   type        = string
 }
 
-variable "reasoning_engine_sa_email" {
-  description = "Email of the Reasoning Engine service account that requires access to the gemini-api-key secret."
+variable "cloudbuild_sa_email" {
+  description = "Email of the Cloud Build service account that requires access to the github-token secret for CI/CD."
   type        = string
 }

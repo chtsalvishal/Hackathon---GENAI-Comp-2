@@ -1,0 +1,69 @@
+steps:
+  # -------------------------------------------------------------------------
+  # Step 1: Terraform init with GCS backend
+  # -------------------------------------------------------------------------
+  - name: "hashicorp/terraform:1.7"
+    id: terraform-init
+    entrypoint: terraform
+    args:
+      - "-chdir=terraform"
+      - "init"
+      - "-input=false"
+
+  # -------------------------------------------------------------------------
+  # Step 2: Terraform plan — written to file for apply step
+  # -------------------------------------------------------------------------
+  - name: "hashicorp/terraform:1.7"
+    id: terraform-plan
+    entrypoint: terraform
+    args:
+      - "-chdir=terraform"
+      - "plan"
+      - "-input=false"
+      - "-out=/workspace/tfplan"
+    waitFor: ["terraform-init"]
+
+  # -------------------------------------------------------------------------
+  # Step 3: Terraform apply
+  # -------------------------------------------------------------------------
+  - name: "hashicorp/terraform:1.7"
+    id: terraform-apply
+    entrypoint: terraform
+    args:
+      - "-chdir=terraform"
+      - "apply"
+      - "-input=false"
+      - "/workspace/tfplan"
+    waitFor: ["terraform-plan"]
+
+  # -------------------------------------------------------------------------
+  # Step 4: Trigger Dataform daily-refresh workflow execution
+  # -------------------------------------------------------------------------
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    id: dataform-trigger
+    entrypoint: bash
+    args:
+      - "-c"
+      - |
+        PROJECT_ID=$(gcloud config get-value project)
+        REGION="australia-southeast1"
+        WORKFLOW="daily-refresh-workflow"
+        echo "Triggering $WORKFLOW in $REGION..."
+        gcloud workflows run "$WORKFLOW" \
+          --project="$PROJECT_ID" \
+          --location="$REGION" \
+          --data='{"source":"cloud-build"}'
+        echo "Workflow execution triggered."
+    waitFor: ["terraform-apply"]
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+  env:
+    - "TF_IN_AUTOMATION=1"
+
+timeout: "1800s"  # 30 minutes for full Terraform apply + Dataform refresh
+
+tags:
+  - deploy
+  - main-branch

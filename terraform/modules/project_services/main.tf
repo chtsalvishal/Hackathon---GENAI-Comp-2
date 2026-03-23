@@ -1,21 +1,25 @@
 locals {
+  # Exactly these APIs enabled — all others remain off (non-negotiable #6)
   apis = toset([
     "bigquery.googleapis.com",
     "bigqueryconnection.googleapis.com",
     "bigquerydatatransfer.googleapis.com",
+    "bigquerydatapolicy.googleapis.com",
     "aiplatform.googleapis.com",
     "dataform.googleapis.com",
-    "storage.googleapis.com",
+    "dataplex.googleapis.com",
     "datacatalog.googleapis.com",
-    "looker.googleapis.com",
-    "cloudresourcemanager.googleapis.com",
-    "iam.googleapis.com",
+    "storage.googleapis.com",
+    "pubsub.googleapis.com",
+    "eventarc.googleapis.com",
+    "workflows.googleapis.com",
+    "cloudscheduler.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "secretmanager.googleapis.com",
     "monitoring.googleapis.com",
     "logging.googleapis.com",
-    "secretmanager.googleapis.com",
-    "workflows.googleapis.com",
-    "eventarc.googleapis.com",
-    "pubsub.googleapis.com",
+    "iam.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
   ])
 }
 
@@ -24,6 +28,6 @@ resource "google_project_service" "apis" {
 
   project                    = var.project_id
   service                    = each.value
-  disable_on_destroy         = false
+  disable_on_destroy         = true   # Turns off unused APIs on terraform destroy
   disable_dependent_services = false
 }

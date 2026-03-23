@@ -37,11 +37,39 @@ resource "google_service_account" "dataform" {
   description  = "Service account used by Dataform repository to run BigQuery jobs."
 }
 
-resource "google_service_account" "reasoning_engine" {
+resource "google_service_account" "workflows" {
   project      = var.project_id
-  account_id   = "reasoning-engine"
-  display_name = "Reasoning Engine Service Account"
-  description  = "Service account for Vertex AI Reasoning Engine (Sprint 3 agent deployment)."
+  account_id   = "workflows-sa"
+  display_name = "Cloud Workflows Service Account"
+  description  = "SA that Cloud Workflows runs as — calls Dataform API and BigQuery."
+}
+
+resource "google_service_account" "eventarc" {
+  project      = var.project_id
+  account_id   = "eventarc-sa"
+  display_name = "Eventarc Service Account"
+  description  = "Receives GCS object.finalize events and invokes the delta-ingest Cloud Workflow."
+}
+
+resource "google_service_account" "scheduler" {
+  project      = var.project_id
+  account_id   = "scheduler-sa"
+  display_name = "Cloud Scheduler Service Account"
+  description  = "Invokes Cloud Workflows on a daily schedule for full-refresh runs."
+}
+
+resource "google_service_account" "dataplex" {
+  project      = var.project_id
+  account_id   = "dataplex-sa"
+  display_name = "Dataplex Service Account"
+  description  = "Runs Dataplex data quality scans against BigQuery datasets."
+}
+
+resource "google_service_account" "cloudbuild" {
+  project      = var.project_id
+  account_id   = "cloudbuild-sa"
+  display_name = "Cloud Build Service Account"
+  description  = "CI/CD SA — validates and deploys Terraform and Dataform on GitHub push events."
 }
 
 # ---------------------------------------------------------------------------
@@ -143,23 +171,105 @@ resource "google_project_iam_member" "dataform_sa_bq_job_user" {
 }
 
 # ---------------------------------------------------------------------------
-# Reasoning Engine SA IAM bindings
+# Cloud Workflows SA IAM bindings
 # ---------------------------------------------------------------------------
 
-resource "google_project_iam_member" "reasoning_engine_aiplatform_user" {
+resource "google_project_iam_member" "workflows_sa_dataform_editor" {
   project = var.project_id
-  role    = "roles/aiplatform.user"
-  member  = "serviceAccount:${google_service_account.reasoning_engine.email}"
+  role    = "roles/dataform.editor"
+  member  = "serviceAccount:${google_service_account.workflows.email}"
 }
 
-resource "google_project_iam_member" "reasoning_engine_bq_job_user" {
+resource "google_project_iam_member" "workflows_sa_bq_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
-  member  = "serviceAccount:${google_service_account.reasoning_engine.email}"
+  member  = "serviceAccount:${google_service_account.workflows.email}"
 }
 
-resource "google_project_iam_member" "reasoning_engine_bq_viewer" {
+resource "google_project_iam_member" "workflows_sa_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.workflows.email}"
+}
+
+# ---------------------------------------------------------------------------
+# Eventarc SA IAM bindings
+# ---------------------------------------------------------------------------
+
+resource "google_project_iam_member" "eventarc_sa_event_receiver" {
+  project = var.project_id
+  role    = "roles/eventarc.eventReceiver"
+  member  = "serviceAccount:${google_service_account.eventarc.email}"
+}
+
+resource "google_project_iam_member" "eventarc_sa_workflows_invoker" {
+  project = var.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:${google_service_account.eventarc.email}"
+}
+
+# ---------------------------------------------------------------------------
+# Cloud Scheduler SA IAM bindings
+# ---------------------------------------------------------------------------
+
+resource "google_project_iam_member" "scheduler_sa_workflows_invoker" {
+  project = var.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:${google_service_account.scheduler.email}"
+}
+
+# ---------------------------------------------------------------------------
+# Dataplex SA IAM bindings
+# ---------------------------------------------------------------------------
+
+resource "google_project_iam_member" "dataplex_sa_dataplex_editor" {
+  project = var.project_id
+  role    = "roles/dataplex.editor"
+  member  = "serviceAccount:${google_service_account.dataplex.email}"
+}
+
+resource "google_project_iam_member" "dataplex_sa_bq_data_viewer" {
   project = var.project_id
   role    = "roles/bigquery.dataViewer"
-  member  = "serviceAccount:${google_service_account.reasoning_engine.email}"
+  member  = "serviceAccount:${google_service_account.dataplex.email}"
+}
+
+resource "google_project_iam_member" "dataplex_sa_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.dataplex.email}"
+}
+
+# ---------------------------------------------------------------------------
+# Cloud Build SA IAM bindings
+# ---------------------------------------------------------------------------
+
+resource "google_project_iam_member" "cloudbuild_sa_builds_editor" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.editor"
+  member  = "serviceAccount:${google_service_account.cloudbuild.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_sa_dataform_editor" {
+  project = var.project_id
+  role    = "roles/dataform.editor"
+  member  = "serviceAccount:${google_service_account.cloudbuild.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_sa_secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.cloudbuild.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_sa_storage_admin" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.cloudbuild.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_sa_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.cloudbuild.email}"
 }

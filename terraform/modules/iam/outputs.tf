@@ -23,7 +23,27 @@ output "dataform_sa_email" {
   value       = google_service_account.dataform.email
 }
 
-output "reasoning_engine_sa_email" {
-  description = "Email of the Reasoning Engine service account. Consumed by secret_manager and vertex_ai modules."
-  value       = google_service_account.reasoning_engine.email
+output "workflows_sa_email" {
+  description = "Email of the Cloud Workflows service account."
+  value       = google_service_account.workflows.email
+}
+
+output "eventarc_sa_email" {
+  description = "Email of the Eventarc service account."
+  value       = google_service_account.eventarc.email
+}
+
+output "scheduler_sa_email" {
+  description = "Email of the Cloud Scheduler service account."
+  value       = google_service_account.scheduler.email
+}
+
+output "dataplex_sa_email" {
+  description = "Email of the Dataplex service account."
+  value       = google_service_account.dataplex.email
+}
+
+output "cloudbuild_sa_email" {
+  description = "Email of the Cloud Build service account."
+  value       = google_service_account.cloudbuild.email
 }

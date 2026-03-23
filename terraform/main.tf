@@ -47,10 +47,10 @@ module "iam" {
 #    Needs IAM outputs for SA email bindings.
 # ---------------------------------------------------------------------------
 module "secret_manager" {
-  source                    = "./modules/secret_manager"
-  project_id                = var.project_id
-  dataform_sa_email         = module.iam.dataform_sa_email
-  reasoning_engine_sa_email = module.iam.reasoning_engine_sa_email
+  source              = "./modules/secret_manager"
+  project_id          = var.project_id
+  dataform_sa_email   = module.iam.dataform_sa_email
+  cloudbuild_sa_email = module.iam.cloudbuild_sa_email
 
   depends_on = [module.project_services, module.iam]
 }
@@ -91,7 +91,7 @@ module "data_catalog" {
 
 # ---------------------------------------------------------------------------
 # 7. Dataform — repository wired to GitHub, workspace compilation overrides,
-#    and Dataform SA IAM bindings.
+#    release configuration, and scheduled workflow invocations.
 # ---------------------------------------------------------------------------
 module "dataform" {
   source                   = "./modules/dataform"
@@ -105,13 +105,89 @@ module "dataform" {
 }
 
 # ---------------------------------------------------------------------------
-# 8. Vertex AI — Reasoning Engine service account and IAM; actual agent
-#    deployment is performed via Python in Sprint 3.
+# 8. Vertex AI — metadata store that validates aiplatform API is active.
+#    BigQuery ML uses the aiplatform API for ML.GENERATE_TEXT (Gemini).
 # ---------------------------------------------------------------------------
 module "vertex_ai" {
   source     = "./modules/vertex_ai"
   project_id = var.project_id
   region     = var.region
 
+  depends_on = [module.project_services]
+}
+
+# ---------------------------------------------------------------------------
+# 9. Pub/Sub — topic that receives GCS object.finalize notifications for
+#    event-driven delta ingestion.
+# ---------------------------------------------------------------------------
+module "pubsub" {
+  source     = "./modules/pubsub"
+  project_id = var.project_id
+  bucket_name = module.storage.bucket_name
+
+  depends_on = [module.project_services, module.storage]
+}
+
+# ---------------------------------------------------------------------------
+# 10. Eventarc — trigger: GCS object.finalize → Cloud Workflow (delta-ingest).
+# ---------------------------------------------------------------------------
+module "eventarc" {
+  source           = "./modules/eventarc"
+  project_id       = var.project_id
+  region           = var.region
+  bucket_name      = module.storage.bucket_name
+  workflow_name    = module.cloud_workflows.workflow_name
+  eventarc_sa_email = module.iam.eventarc_sa_email
+
+  depends_on = [module.project_services, module.pubsub, module.cloud_workflows, module.iam]
+}
+
+# ---------------------------------------------------------------------------
+# 11. Cloud Workflows — delta-ingest and daily-refresh workflow definitions.
+# ---------------------------------------------------------------------------
+module "cloud_workflows" {
+  source            = "./modules/cloud_workflows"
+  project_id        = var.project_id
+  region            = var.region
+  workflows_sa_email = module.iam.workflows_sa_email
+
   depends_on = [module.project_services, module.iam]
+}
+
+# ---------------------------------------------------------------------------
+# 12. Cloud Scheduler — daily full-refresh trigger (00:00 AEDT).
+# ---------------------------------------------------------------------------
+module "cloud_scheduler" {
+  source             = "./modules/cloud_scheduler"
+  project_id         = var.project_id
+  region             = var.region
+  workflow_name      = module.cloud_workflows.daily_workflow_name
+  scheduler_sa_email = module.iam.scheduler_sa_email
+
+  depends_on = [module.project_services, module.cloud_workflows, module.iam]
+}
+
+# ---------------------------------------------------------------------------
+# 13. Dataplex — lake, zones, and data quality scans for governance.
+# ---------------------------------------------------------------------------
+module "dataplex" {
+  source          = "./modules/dataplex"
+  project_id      = var.project_id
+  region          = var.region
+  dataplex_sa_email = module.iam.dataplex_sa_email
+
+  depends_on = [module.project_services, module.bigquery, module.iam]
+}
+
+# ---------------------------------------------------------------------------
+# 14. Cloud Build — CI/CD triggers wired to the GitHub repository.
+# ---------------------------------------------------------------------------
+module "cloud_build" {
+  source              = "./modules/cloud_build"
+  project_id          = var.project_id
+  region              = var.region
+  github_repo         = var.github_repo
+  cloudbuild_sa_email = module.iam.cloudbuild_sa_email
+
+  depends_on = [module.project_services, module.iam, module.secret_manager]
 }

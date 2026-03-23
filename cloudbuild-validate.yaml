@@ -1,0 +1,48 @@
+steps:
+  # -------------------------------------------------------------------------
+  # Step 1: Terraform format check
+  # -------------------------------------------------------------------------
+  - name: "hashicorp/terraform:1.7"
+    id: terraform-fmt-check
+    entrypoint: terraform
+    args: ["fmt", "-check", "-recursive", "terraform/"]
+
+  # -------------------------------------------------------------------------
+  # Step 2: Terraform init (no backend, just validates provider schemas)
+  # -------------------------------------------------------------------------
+  - name: "hashicorp/terraform:1.7"
+    id: terraform-init
+    entrypoint: terraform
+    args: ["-chdir=terraform", "init", "-backend=false"]
+
+  # -------------------------------------------------------------------------
+  # Step 3: Terraform validate
+  # -------------------------------------------------------------------------
+  - name: "hashicorp/terraform:1.7"
+    id: terraform-validate
+    entrypoint: terraform
+    args: ["-chdir=terraform", "validate"]
+    waitFor: ["terraform-init"]
+
+  # -------------------------------------------------------------------------
+  # Step 4: Dataform compilation dry-run via Dataform CLI
+  # -------------------------------------------------------------------------
+  - name: "node:20-slim"
+    id: dataform-compile
+    entrypoint: bash
+    args:
+      - "-c"
+      - |
+        npm install -g @dataform/cli@3 --quiet
+        dataform compile --json 2>&1 | tail -5
+    waitFor: ["-"]
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: "600s"
+
+tags:
+  - validate
+  - pull-request

@@ -88,12 +88,12 @@ resource "google_secret_manager_secret_iam_member" "dataform_github_token" {
 }
 
 # ---------------------------------------------------------------------------
-# IAM — Reasoning Engine SA can access gemini-api-key
+# IAM — Cloud Build SA can access github-token for CI/CD pipeline
 # ---------------------------------------------------------------------------
 
-resource "google_secret_manager_secret_iam_member" "reasoning_engine_gemini_key" {
+resource "google_secret_manager_secret_iam_member" "cloudbuild_sa_github_token" {
   project   = var.project_id
-  secret_id = google_secret_manager_secret.gemini_api_key.secret_id
+  secret_id = google_secret_manager_secret.github_token.secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${var.reasoning_engine_sa_email}"
+  member    = "serviceAccount:${var.cloudbuild_sa_email}"
 }

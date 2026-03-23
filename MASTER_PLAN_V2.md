@@ -1150,6 +1150,47 @@ A fully automated, governed, AI-first BigQuery warehouse deployable in under 30 
 
 ---
 
+## Legacy Code Removed in V2
+
+These files are deleted from the repository. Each line explains what replaces it.
+
+### scripts/ — Entire Directory Removed
+| File Deleted | Replaced By |
+|-------------|-------------|
+| `scripts/bootstrap.sh` | `terraform apply` — one command, zero bash |
+| `scripts/trigger_delta_pipeline.sh` | GCS → Pub/Sub → Eventarc → Cloud Workflows (automatic, no trigger needed) |
+| `scripts/load_initial_data.sh` | `gsutil -m cp data/*.csv gs://BUCKET/` then Dataform Workflow Config runs automatically |
+| `scripts/teardown.sh` | `terraform destroy -auto-approve` |
+
+### ai/reasoning_engine/ — Python Agent Removed
+| File Deleted | Replaced By |
+|-------------|-------------|
+| `ai/reasoning_engine/agent.py` | **Vertex AI Agent Builder** — configure in GCP console, no Python deployment |
+| `ai/reasoning_engine/tools.py` | BigQuery Data Agent tools defined in `ai/bq_data_agent/agent_config.yaml` |
+| `ai/reasoning_engine/requirements.txt` | No runtime dependencies — fully managed by Google |
+
+### All Ad-Hoc Python REST API Scripts (session scripts)
+| Pattern Deleted | Replaced By |
+|----------------|-------------|
+| Python OAuth2 token refresh loop | Service account auth — automatic in all Google services |
+| Python `urllib` Dataform API calls | Dataform Workflow Configurations (Terraform-managed cron) |
+| Python polling loops for job state | Cloud Workflows `sys.sleep` + `switch` on state |
+| Manual `bq show` / `bq mk` calls | Terraform `google_bigquery_*` resources |
+| Manual IAM binding scripts | Terraform `google_project_iam_member` |
+
+### What Stays (Intentionally Kept)
+| File | Reason |
+|------|--------|
+| `ai/bq_data_agent/agent_config.yaml` | Native Data Agent config — YAML, no Python |
+| `ai/vertex_ai_studio/prompt_templates.json` | Versioned prompt storage for model governance |
+| `ai/evaluation/usage_stats.sql` | SQL query for CTO Gemini cost tile — used in Looker Studio |
+| `monitoring/pipeline_alerts.tf` | Enhanced and wired into the monitoring module |
+| `monitoring/budget_alert.tf` | Wired into the monitoring module |
+| All `definitions/**/*.sqlx` | Dataform SQL — this is the core pipeline |
+| `terraform/` | The entire infrastructure definition |
+
+---
+
 ## What This Eliminates Permanently
 
 | Eliminated | Replaced By |

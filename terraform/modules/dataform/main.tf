@@ -43,3 +43,53 @@ resource "google_secret_manager_secret_iam_member" "dataform_sa_github_token" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.dataform_sa_email}"
 }
+
+# ---------------------------------------------------------------------------
+# Dataform Release Configuration — production release from main branch.
+# This is the compilation target used by all workflow configurations.
+# ---------------------------------------------------------------------------
+
+resource "google_dataform_repository_release_config" "production" {
+  provider   = google-beta
+  project    = var.project_id
+  region     = var.region
+  repository = google_dataform_repository.main.name
+
+  name            = "production"
+  git_commitish   = "main"
+  cron_schedule   = "0 12 * * *"  # compile at noon UTC daily (ahead of midnight refresh)
+  time_zone       = "UTC"
+
+  code_compilation_config {
+    default_database = var.project_id
+    default_schema   = "gold"
+    default_location = var.region
+    assertion_schema = "dataform_assertions"
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Dataform Workflow Configuration — daily full refresh.
+# Replaces the Python script that manually called the Dataform API.
+# Runs all tables at 14:30 UTC (after midnight AEDT compilation at 12:00 UTC).
+# ---------------------------------------------------------------------------
+
+resource "google_dataform_repository_workflow_config" "daily_full_refresh" {
+  provider   = google-beta
+  project    = var.project_id
+  region     = var.region
+  repository = google_dataform_repository.main.name
+
+  name           = "daily-full-refresh"
+  release_config = google_dataform_repository_release_config.production.id
+  cron_schedule  = "30 14 * * *"  # 14:30 UTC = 00:30 AEDT
+  time_zone      = "UTC"
+
+  invocation_config {
+    fully_refresh_incremental_tables_enabled = true
+    transitive_dependencies_included         = true
+    transitive_dependents_included           = true
+  }
+
+  depends_on = [google_dataform_repository_release_config.production]
+}
