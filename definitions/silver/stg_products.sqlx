@@ -29,23 +29,24 @@ config {
 }
 
 SELECT
-  TRIM(product_id)                                           AS product_id,
-  TRIM(product_name)                                         AS product_name,
-  TRIM(category)                                             AS category,
-  TRIM(sub_category)                                         AS sub_category,
-  TRIM(brand)                                                AS brand,
-  SAFE_CAST(unit_price     AS NUMERIC)                       AS unit_price,
-  SAFE_CAST(cost_price     AS NUMERIC)                       AS cost_price,
-  SAFE_CAST(stock_quantity AS INT64)                         AS stock_quantity,
-  SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', created_at)     AS created_at,
+  TRIM(product_id)                       AS product_id,
+  TRIM(product_name)                     AS product_name,
+  TRIM(category)                         AS category,
+  TRIM(subcategory)                      AS sub_category,
+  TRIM(brand)                            AS brand,
+  SAFE_CAST(unit_price  AS NUMERIC)      AS unit_price,
+  SAFE_CAST(unit_cost   AS NUMERIC)      AS cost_price,
+  SAFE_CAST(stock_quantity AS INT64)     AS stock_quantity,
+  SAFE.PARSE_DATE('%Y-%m-%d', created_date) AS created_at,
   source_file,
-  CURRENT_TIMESTAMP()                                        AS updated_at
+  CURRENT_TIMESTAMP()                    AS updated_at
 FROM (
   SELECT
     *,
+    _FILE_NAME AS source_file,
     ROW_NUMBER() OVER (
       PARTITION BY product_id
-      ORDER BY source_file DESC
+      ORDER BY _FILE_NAME DESC
     ) AS rn
   FROM ${ref("ext_products")}
   WHERE product_id IS NOT NULL

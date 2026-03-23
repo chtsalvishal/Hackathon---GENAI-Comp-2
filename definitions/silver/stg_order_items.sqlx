@@ -39,9 +39,10 @@ SELECT
 FROM (
   SELECT
     *,
+    _FILE_NAME AS source_file,
     ROW_NUMBER() OVER (
       PARTITION BY order_item_id
-      ORDER BY source_file DESC
+      ORDER BY _FILE_NAME DESC
     ) AS rn
   FROM ${ref("ext_order_items")}
   WHERE order_item_id IS NOT NULL

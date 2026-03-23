@@ -2,7 +2,8 @@ config {
   type: "operations",
   schema: "gold",
   tags: ["delta"],
-  description: "MERGE delta batch customers into gold.dim_customers with idempotency guard via batch_audit_log"
+  description: "MERGE delta batch customers into gold.dim_customers with idempotency guard via batch_audit_log",
+  dependencies: ["dim_customers", "batch_audit_log"]
 }
 
 -- Idempotency guard: skip if this batch was already successfully processed today

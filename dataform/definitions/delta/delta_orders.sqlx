@@ -2,7 +2,8 @@ config {
   type: "operations",
   schema: "gold",
   tags: ["delta"],
-  description: "MERGE delta batch orders into gold.fct_orders with idempotency guard via batch_audit_log"
+  description: "MERGE delta batch orders into gold.fct_orders with idempotency guard via batch_audit_log",
+  dependencies: ["fct_orders", "batch_audit_log"]
 }
 
 -- Idempotency guard: skip if this batch was already successfully processed today

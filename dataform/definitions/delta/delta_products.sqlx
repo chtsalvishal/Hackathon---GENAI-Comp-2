@@ -2,7 +2,8 @@ config {
   type: "operations",
   schema: "gold",
   tags: ["delta"],
-  description: "MERGE delta batch products into gold.dim_products with idempotency guard via batch_audit_log"
+  description: "MERGE delta batch products into gold.dim_products with idempotency guard via batch_audit_log",
+  dependencies: ["dim_products", "batch_audit_log"]
 }
 
 -- Idempotency guard: skip if this batch was already successfully processed today
@@ -32,15 +33,15 @@ IF NOT batch_already_processed THEN
   MERGE `vishal-sandpit-474523.gold.dim_products` AS target
   USING (
     SELECT
-      TRIM(product_id)                                        AS product_id,
-      TRIM(product_name)                                      AS product_name,
-      TRIM(category)                                          AS category,
-      TRIM(sub_category)                                      AS sub_category,
-      TRIM(brand)                                             AS brand,
-      SAFE_CAST(unit_price     AS NUMERIC)                    AS unit_price,
-      SAFE_CAST(cost_price     AS NUMERIC)                    AS cost_price,
-      SAFE_CAST(stock_quantity AS INT64)                      AS stock_quantity,
-      SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', created_at)  AS created_at,
+      TRIM(product_id)                       AS product_id,
+      TRIM(product_name)                     AS product_name,
+      TRIM(category)                         AS category,
+      TRIM(subcategory)                      AS sub_category,
+      TRIM(brand)                            AS brand,
+      SAFE_CAST(unit_price  AS NUMERIC)      AS unit_price,
+      SAFE_CAST(unit_cost   AS NUMERIC)      AS cost_price,
+      SAFE_CAST(stock_quantity AS INT64)     AS stock_quantity,
+      SAFE.PARSE_DATE('%Y-%m-%d', created_date) AS created_at,
       _FILE_NAME AS source_file
     FROM `vishal-sandpit-474523.bronze.ext_products`
     WHERE _FILE_NAME LIKE '%batch_0%'

@@ -56,9 +56,10 @@ SELECT
 FROM (
   SELECT
     *,
+    _FILE_NAME AS source_file,
     ROW_NUMBER() OVER (
       PARTITION BY customer_id
-      ORDER BY source_file DESC
+      ORDER BY _FILE_NAME DESC
     ) AS rn
   FROM ${ref("ext_customers")}
   WHERE customer_id IS NOT NULL
