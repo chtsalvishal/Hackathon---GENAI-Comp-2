@@ -37,5 +37,6 @@ OPTIONS (
   uris                = ['gs://intelia-hackathon-files/batch_0*_customers_delta.csv'],
   skip_leading_rows   = 1,
   allow_quoted_newlines = true,
-  allow_jagged_rows   = true
+  allow_jagged_rows   = true,
+  ignore_unknown_values = true
 );

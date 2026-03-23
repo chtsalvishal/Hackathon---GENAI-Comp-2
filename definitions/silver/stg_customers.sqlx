@@ -48,7 +48,7 @@ SELECT
   TRIM(UPPER(country))                           AS country,
   TRIM(customer_tier)                            AS customer_segment,
   TRIM(account_status)                           AS account_status,
-  SAFE.PARSE_DATE('%Y-%m-%d', registration_date) AS created_date,
+  DATE(SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', registration_date)) AS created_date,
   _FILE_NAME AS source_file,
   CURRENT_TIMESTAMP()                            AS updated_at
 FROM (

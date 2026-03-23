@@ -31,7 +31,7 @@ config {
 SELECT
   TRIM(order_id)                               AS order_id,
   TRIM(customer_id)                            AS customer_id,
-  SAFE.PARSE_DATE('%Y-%m-%d', order_date)      AS order_date,
+  DATE(SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', order_date)) AS order_date,
   TRIM(LOWER(order_status))                    AS status,
   SAFE_CAST(total_amount AS NUMERIC)           AS total_amount,
   SAFE_CAST(subtotal AS NUMERIC)               AS subtotal,
