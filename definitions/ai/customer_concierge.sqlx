@@ -6,6 +6,41 @@ config {
   dependOnDependencyAssertions: true
 }
 
+-- Bulk inference: pass all eligible customers to Gemini in one call for efficiency
+WITH ai_results AS (
+  SELECT
+    customer_id,
+    ml_generate_text_llm_result AS gemini_persona_and_strategy,
+    ml_generate_text_status     AS generation_status
+  FROM ML.GENERATE_TEXT(
+    MODEL `vishal-sandpit-474523.ai.gemini_pro_model`,
+    (
+      SELECT
+        customer_id,
+        CONCAT(
+          'You are a customer success expert. Analyse this customer profile and provide:\n',
+          '1. A 2-sentence persona describing their behaviour and value to the business.\n',
+          '2. One specific, actionable retention strategy tailored to their situation.\n\n',
+          'Customer: ', customer_name, '\n',
+          'Segment: ', customer_segment, '\n',
+          'Lifetime Value: $', CAST(ROUND(total_lifetime_value, 2) AS STRING), '\n',
+          'Total Orders: ', CAST(order_count AS STRING), '\n',
+          'Average Order Value: $', CAST(ROUND(avg_order_value, 2) AS STRING), '\n',
+          'Days Since Last Purchase: ', CAST(days_since_last_purchase AS STRING), '\n',
+          'Churn Risk: ', churn_risk, '\n',
+          'Country: ', country
+        ) AS prompt
+      FROM ${ref("dim_customers")}
+      WHERE order_count > 0
+    ),
+    STRUCT(
+      0.2   AS temperature,
+      256   AS max_output_tokens,
+      TRUE  AS flatten_json_output
+    )
+  )
+)
+
 SELECT
   c.customer_id,
   c.customer_name,
@@ -18,42 +53,11 @@ SELECT
   c.last_purchase_date,
   c.days_since_last_purchase,
   c.country,
-  -- Raw data columns for CCO side-by-side view
-  c.total_lifetime_value                            AS raw_ltv,
-  c.order_count                                     AS raw_order_count,
-  c.churn_risk                                      AS raw_churn_risk,
-  -- Gemini-generated insight (prompt v1)
-  ml_result.ml_generate_text_llm_result             AS gemini_persona_and_strategy,
-  ml_result.ml_generate_text_status                 AS generation_status,
-  CURRENT_TIMESTAMP()                               AS generated_at
+  c.total_lifetime_value  AS raw_ltv,
+  c.order_count           AS raw_order_count,
+  c.churn_risk            AS raw_churn_risk,
+  r.gemini_persona_and_strategy,
+  r.generation_status,
+  CURRENT_TIMESTAMP()     AS generated_at
 FROM ${ref("dim_customers")} c
-CROSS JOIN UNNEST([
-  (SELECT AS STRUCT
-    ml_generate_text_llm_result,
-    ml_generate_text_status
-   FROM ML.GENERATE_TEXT(
-     MODEL `vishal-sandpit-474523.ai.gemini_pro_model`,
-     (SELECT CONCAT(
-       'You are a customer success expert. Analyse this customer profile and provide:\n',
-       '1. A 2-sentence persona describing their behaviour and value to the business.\n',
-       '2. One specific, actionable retention strategy tailored to their situation.\n\n',
-       'Customer: ', c2.customer_name, '\n',
-       'Segment: ', c2.customer_segment, '\n',
-       'Lifetime Value: $', CAST(ROUND(c2.total_lifetime_value, 2) AS STRING), '\n',
-       'Total Orders: ', CAST(c2.order_count AS STRING), '\n',
-       'Average Order Value: $', CAST(ROUND(c2.avg_order_value, 2) AS STRING), '\n',
-       'Days Since Last Purchase: ', CAST(c2.days_since_last_purchase AS STRING), '\n',
-       'Churn Risk: ', c2.churn_risk, '\n',
-       'Country: ', c2.country
-      ) AS prompt
-      FROM ${ref("dim_customers")} c2
-      WHERE c2.customer_id = c.customer_id
-     ),
-     STRUCT(
-       0.2     AS temperature,
-       256     AS max_output_tokens,
-       TRUE    AS flatten_json_output
-     )
-   ))
-]) AS ml_result
-WHERE c.order_count > 0
+JOIN ai_results r USING (customer_id)
