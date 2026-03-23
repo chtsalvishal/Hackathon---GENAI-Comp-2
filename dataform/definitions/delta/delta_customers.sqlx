@@ -2,12 +2,13 @@ config {
   type: "operations",
   schema: "gold",
   tags: ["delta"],
-  description: "MERGE delta batch customers into gold.dim_customers with idempotency guard via batch_audit_log",
+  description: "MERGE delta batch customers into gold.dim_customers. Automatically detects new CSV columns, adds them to the target, and populates them via a supplementary MERGE.",
   dependencies: ["dim_customers", "batch_audit_log", "ext_customers_delta"]
 }
 
--- Idempotency guard: skip if this batch was already successfully processed today
 DECLARE batch_already_processed BOOL DEFAULT FALSE;
+DECLARE new_cols                 ARRAY<STRING> DEFAULT [];
+DECLARE merged_rows              INT64 DEFAULT 0;
 
 SET batch_already_processed = (
   SELECT COUNT(*) > 0
@@ -18,87 +19,122 @@ SET batch_already_processed = (
 
 IF NOT batch_already_processed THEN
 
-  -- Log run start
   INSERT INTO `vishal-sandpit-474523.governance.batch_audit_log`
     (batch_id, source_file, entity, status, started_at)
   VALUES (
     CONCAT('delta_customers_', FORMAT_DATE('%Y%m%d', CURRENT_DATE())),
     'gs://intelia-hackathon-files/batch_0*_customers_delta.csv',
-    'customers',
-    'RUNNING',
-    CURRENT_TIMESTAMP()
+    'customers', 'RUNNING', CURRENT_TIMESTAMP()
   );
 
-  -- MERGE delta records into gold dimension
+  -- ── Schema evolution ─────────────────────────────────────────────────────────
+  -- Find columns that are in the delta table but not yet in dim_customers.
+  -- Columns whose names start with '_' (metadata: _delta_type, _batch_id,
+  -- _batch_date) are intentionally excluded.
+  SET new_cols = ARRAY(
+    SELECT s.column_name
+    FROM `vishal-sandpit-474523`.bronze.INFORMATION_SCHEMA.COLUMNS s
+    WHERE s.table_name = 'ext_customers_delta'
+      AND NOT REGEXP_CONTAINS(s.column_name, r'^_')
+      AND s.column_name NOT IN (
+        SELECT column_name
+        FROM `vishal-sandpit-474523`.gold.INFORMATION_SCHEMA.COLUMNS
+        WHERE table_name = 'dim_customers'
+      )
+  );
+
+  -- Add genuinely new columns to dim_customers (STRING; refine type later if needed).
+  IF ARRAY_LENGTH(new_cols) > 0 THEN
+    EXECUTE IMMEDIATE (
+      CONCAT(
+        'ALTER TABLE `vishal-sandpit-474523.gold.dim_customers` ADD COLUMN IF NOT EXISTS ',
+        (SELECT STRING_AGG(CONCAT('`', c, '` STRING'), ', ADD COLUMN IF NOT EXISTS ')
+         FROM UNNEST(new_cols) c)
+      )
+    );
+  END IF;
+  -- ─────────────────────────────────────────────────────────────────────────────
+
+  -- Static MERGE for all known columns with proper type casting
   MERGE `vishal-sandpit-474523.gold.dim_customers` AS target
   USING (
     SELECT
-      TRIM(customer_id)                         AS customer_id,
-      TRIM(LOWER(first_name))                   AS first_name,
-      TRIM(LOWER(last_name))                    AS last_name,
-      TRIM(LOWER(email))                        AS email,
-      TRIM(phone)                               AS phone,
-      TRIM(UPPER(city))                         AS city,
-      TRIM(UPPER(country))                      AS country,
-      TRIM(customer_tier)                       AS customer_segment,
-      TRIM(account_status)                      AS churn_risk,
-      _FILE_NAME AS source_file
+      TRIM(customer_id)        AS customer_id,
+      TRIM(LOWER(first_name))  AS first_name,
+      TRIM(LOWER(last_name))   AS last_name,
+      TRIM(LOWER(email))       AS email,
+      TRIM(phone)              AS phone,
+      TRIM(UPPER(city))        AS city,
+      TRIM(UPPER(country))     AS country,
+      TRIM(customer_tier)      AS customer_segment,
+      TRIM(account_status)     AS churn_risk
     FROM `vishal-sandpit-474523.bronze.ext_customers_delta`
     WHERE customer_id IS NOT NULL
       AND TRIM(customer_id) != ''
       AND _delta_type IN ('INSERT', 'UPDATE', 'UPSERT')
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY _batch_date DESC) = 1
   ) AS source
   ON target.customer_id = source.customer_id
 
   WHEN MATCHED THEN UPDATE SET
-    target.first_name       = COALESCE(source.first_name, target.first_name),
-    target.last_name        = COALESCE(source.last_name, target.last_name),
-    target.email            = COALESCE(source.email, target.email),
-    target.phone            = COALESCE(source.phone, target.phone),
-    target.city             = COALESCE(source.city, target.city),
-    target.country          = COALESCE(source.country, target.country),
+    target.first_name       = COALESCE(source.first_name,       target.first_name),
+    target.last_name        = COALESCE(source.last_name,        target.last_name),
+    target.email            = COALESCE(source.email,            target.email),
+    target.phone            = COALESCE(source.phone,            target.phone),
+    target.city             = COALESCE(source.city,             target.city),
+    target.country          = COALESCE(source.country,          target.country),
     target.customer_segment = COALESCE(source.customer_segment, target.customer_segment),
-    target.churn_risk       = COALESCE(source.churn_risk, target.churn_risk),
+    target.churn_risk       = COALESCE(source.churn_risk,       target.churn_risk),
     target.updated_at       = CURRENT_TIMESTAMP()
 
   WHEN NOT MATCHED THEN INSERT (
-    customer_id,
-    first_name,
-    last_name,
-    customer_name,
-    email,
-    phone,
-    city,
-    country,
-    order_count,
-    total_lifetime_value,
-    avg_order_value,
-    customer_segment,
-    churn_risk,
-    updated_at
+    customer_id, first_name, last_name, customer_name,
+    email, phone, city, country,
+    order_count, total_lifetime_value, avg_order_value,
+    customer_segment, churn_risk, updated_at
   ) VALUES (
     source.customer_id,
     source.first_name,
     source.last_name,
-    CONCAT(COALESCE(source.first_name,''), ' ', COALESCE(source.last_name,'')),
-    source.email,
-    source.phone,
-    source.city,
-    source.country,
-    0,
-    0,
-    0,
+    CONCAT(COALESCE(source.first_name, ''), ' ', COALESCE(source.last_name, '')),
+    source.email, source.phone, source.city, source.country,
+    0, 0, 0,
     COALESCE(source.customer_segment, 'Bronze'),
     COALESCE(source.churn_risk, 'Active'),
     CURRENT_TIMESTAMP()
   );
 
-  -- Mark batch as completed, capture row count
+  SET merged_rows = @@row_count;
+
+  -- ── New-column propagation ────────────────────────────────────────────────────
+  -- For every column that was just added, update both matched and newly-inserted
+  -- rows with the value from the delta table.
+  IF ARRAY_LENGTH(new_cols) > 0 THEN
+    EXECUTE IMMEDIATE (
+      CONCAT(
+        'MERGE `vishal-sandpit-474523.gold.dim_customers` T ',
+        'USING (',
+        '  SELECT customer_id, ',
+        (SELECT STRING_AGG(CONCAT('CAST(`', c, '` AS STRING) AS `', c, '`'), ', ')
+         FROM UNNEST(new_cols) c),
+        '  FROM `vishal-sandpit-474523.bronze.ext_customers_delta`',
+        '  WHERE _delta_type IN (''INSERT'', ''UPDATE'', ''UPSERT'')',
+        '  QUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY _batch_date DESC) = 1',
+        ') S ON T.customer_id = S.customer_id ',
+        'WHEN MATCHED THEN UPDATE SET ',
+        (SELECT STRING_AGG(
+           CONCAT('T.`', c, '` = COALESCE(S.`', c, '`, T.`', c, '`)'), ', ')
+         FROM UNNEST(new_cols) c)
+      )
+    );
+  END IF;
+  -- ─────────────────────────────────────────────────────────────────────────────
+
   UPDATE `vishal-sandpit-474523.governance.batch_audit_log`
   SET
-    status         = 'COMPLETED',
-    completed_at   = CURRENT_TIMESTAMP(),
-    rows_merged = @@row_count
+    status       = 'COMPLETED',
+    completed_at = CURRENT_TIMESTAMP(),
+    rows_merged  = merged_rows
   WHERE batch_id = CONCAT('delta_customers_', FORMAT_DATE('%Y%m%d', CURRENT_DATE()))
     AND status = 'RUNNING';
 

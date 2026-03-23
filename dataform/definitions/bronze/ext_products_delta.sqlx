@@ -1,40 +1,16 @@
 config {
   type: "operations",
   schema: "bronze",
-  description: "CDC delta feed for products — batch_0* files from intelia-hackathon-files",
+  description: "Loads product delta batches from GCS into a managed BigQuery table with full schema autodetection. New columns added to the CSV are automatically captured on the next run.",
   tags: ["bronze", "delta"],
   hasOutput: true
 }
 
-CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_products_delta` (
-  product_id         STRING,
-  sku                STRING,
-  product_name       STRING,
-  category           STRING,
-  subcategory        STRING,
-  brand              STRING,
-  unit_cost          STRING,
-  unit_price         STRING,
-  discount_eligible  STRING,
-  stock_quantity     STRING,
-  weight_kg          STRING,
-  supplier_id        STRING,
-  is_active          STRING,
-  created_date       STRING,
-  last_updated_date  STRING,
-  average_rating     STRING,
-  review_count       STRING,
-  return_rate        STRING,
-  tags               STRING,
-  _delta_type        STRING,
-  _batch_id          STRING,
-  _batch_date        STRING
-)
-OPTIONS (
-  format              = 'CSV',
-  uris                = ['gs://intelia-hackathon-files/batch_0*_products_delta.csv'],
-  skip_leading_rows   = 1,
-  allow_quoted_newlines = true,
-  allow_jagged_rows   = true,
-  ignore_unknown_values = true
+-- Recreates the table on every run so autodetect captures any new columns in the CSV.
+LOAD DATA OVERWRITE `${database()}.bronze.ext_products_delta`
+FROM FILES (
+  format            = 'CSV',
+  uris              = ['gs://intelia-hackathon-files/batch_0*_products_delta.csv'],
+  skip_leading_rows = 1,
+  autodetect        = true
 );

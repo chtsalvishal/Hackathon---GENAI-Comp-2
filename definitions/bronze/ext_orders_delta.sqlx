@@ -1,44 +1,16 @@
 config {
   type: "operations",
   schema: "bronze",
-  description: "CDC delta feed for orders — batch_0* files from intelia-hackathon-files",
+  description: "Loads order delta batches from GCS into a managed BigQuery table with full schema autodetection. New columns added to the CSV are automatically captured on the next run.",
   tags: ["bronze", "delta"],
   hasOutput: true
 }
 
-CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_orders_delta` (
-  order_id                       STRING,
-  customer_id                    STRING,
-  order_date                     STRING,
-  order_status                   STRING,
-  payment_method                 STRING,
-  payment_status                 STRING,
-  shipping_address_country       STRING,
-  shipping_address_city          STRING,
-  shipping_method                STRING,
-  shipping_cost                  STRING,
-  subtotal                       STRING,
-  discount_code                  STRING,
-  discount_amount                STRING,
-  tax_amount                     STRING,
-  total_amount                   STRING,
-  session_id                     STRING,
-  device_type                    STRING,
-  acquisition_channel_at_order   STRING,
-  coupon_used                    STRING,
-  is_first_order                 STRING,
-  fulfillment_center             STRING,
-  estimated_delivery_date        STRING,
-  actual_delivery_date           STRING,
-  _delta_type                    STRING,
-  _batch_id                      STRING,
-  _batch_date                    STRING
-)
-OPTIONS (
-  format              = 'CSV',
-  uris                = ['gs://intelia-hackathon-files/batch_0*_orders_delta.csv'],
-  skip_leading_rows   = 1,
-  allow_quoted_newlines = true,
-  allow_jagged_rows   = true,
-  ignore_unknown_values = true
+-- Recreates the table on every run so autodetect captures any new columns in the CSV.
+LOAD DATA OVERWRITE `${database()}.bronze.ext_orders_delta`
+FROM FILES (
+  format            = 'CSV',
+  uris              = ['gs://intelia-hackathon-files/batch_0*_orders_delta.csv'],
+  skip_leading_rows = 1,
+  autodetect        = true
 );
