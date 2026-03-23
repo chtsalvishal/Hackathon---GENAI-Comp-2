@@ -22,4 +22,4 @@ SELECT
   CAST(NULL AS STRING)    AS new_value,
   CAST(NULL AS TIMESTAMP) AS detected_at,
   CAST(NULL AS STRING)    AS handled_by
-WHERE FALSE
+LIMIT 0

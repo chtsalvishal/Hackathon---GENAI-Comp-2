@@ -16,14 +16,14 @@ config {
 
 SELECT
   CAST(NULL AS STRING)    AS batch_id,
-  CAST(NULL AS STRING)    AS file_name,
+  CAST(NULL AS STRING)    AS source_file,
   CAST(NULL AS STRING)    AS entity,
   CAST(NULL AS STRING)    AS status,
-  CAST(NULL AS INT64)     AS rows_processed,
   CAST(NULL AS INT64)     AS rows_merged,
   CAST(NULL AS INT64)     AS rows_inserted,
+  CAST(NULL AS INT64)     AS rows_updated,
   CAST(NULL AS STRING)    AS error_message,
   CAST(NULL AS TIMESTAMP) AS started_at,
   CAST(NULL AS TIMESTAMP) AS completed_at,
-  CAST(NULL AS STRING)    AS run_by
-WHERE FALSE
+  CAST(NULL AS STRING)    AS dataform_run_id
+LIMIT 0
