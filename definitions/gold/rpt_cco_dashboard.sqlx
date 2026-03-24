@@ -1,28 +1,26 @@
 config {
   type: "view",
   schema: "gold",
-  description: "CCO Dashboard — monthly revenue trends, customer segment distribution, churn risk breakdown by country. Powers the Looker Studio CCO Dashboard.",
+  description: "CCO Dashboard — flat order-grain fact view with customer segment, churn status, country, and new/returning flag. Looker Studio aggregates scorecards, time-series, geo maps, and segment breakdowns from this single source.",
   tags: ["gold", "daily_refresh", "dashboard", "cco"]
 }
 
+-- Flat order-grain view. No GROUP BY — Looker Studio aggregates as needed.
+-- Supports: revenue scorecards, monthly trend, new vs returning, country geo map,
+--           segment distribution, churn risk, lifetime value band.
 SELECT
-  s.summary_date,
-  FORMAT_DATE('%Y-%m', s.summary_date)          AS year_month,
-  s.country,
-  s.order_count,
-  s.unique_customers,
-  s.gross_revenue,
-  s.avg_order_value,
-  s.new_customers,
-  s.repeat_customers,
-  SAFE_DIVIDE(s.repeat_customers, s.unique_customers) AS repeat_rate,
-  c.customer_segment,
-  c.churn_risk,
-  COUNT(c.customer_id)                           AS segment_customer_count
-FROM ${ref("mart_revenue_summary")} s
-CROSS JOIN (
-  SELECT customer_id, customer_segment, churn_risk, country
-  FROM ${ref("dim_customers_analyst")}
-) c
-WHERE s.summary_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)
-GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12
+  o.order_id,
+  o.order_date,
+  FORMAT_DATE('%Y-%m', o.order_date)                          AS year_month,
+  o.customer_id,
+  o.total_amount                                               AS order_revenue,
+  o.item_count,
+  o.avg_item_price,
+  o.shipping_country                                           AS country,
+  CASE WHEN o.is_first_order THEN 'New' ELSE 'Returning' END   AS customer_type,
+  COALESCE(c.customer_segment, 'Unknown')                      AS customer_segment,
+  COALESCE(c.churn_risk,       'Unknown')                      AS churn_risk,
+  COALESCE(c.lifetime_value_band, 'Unknown')                   AS lifetime_value_band
+FROM ${ref("fct_orders")} o
+LEFT JOIN ${ref("dim_customers_analyst")} c USING (customer_id)
+WHERE o.order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)

@@ -18,7 +18,6 @@ config {
     },
     shipping_city:          { description: "Shipping city" },
     shipping_country:       { description: "Shipping country" },
-    is_first_order:         { description: "True if this is the customer's first order" },
     source_file:            { description: "GCS source file name" },
     updated_at:             { description: "Timestamp this record was last processed" }
   },
@@ -37,7 +36,6 @@ SELECT
   SAFE_CAST(subtotal AS NUMERIC)               AS subtotal,
   TRIM(UPPER(shipping_address_city))           AS shipping_city,
   TRIM(UPPER(shipping_address_country))        AS shipping_country,
-  SAFE_CAST(is_first_order AS BOOL)            AS is_first_order,
   _FILE_NAME AS source_file,
   CURRENT_TIMESTAMP()                          AS updated_at
 FROM (

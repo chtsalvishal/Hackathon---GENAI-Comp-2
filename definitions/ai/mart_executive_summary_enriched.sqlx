@@ -1,0 +1,13 @@
+config {
+  type: "view",
+  schema: "ai",
+  description: "AI-enriched executive summary — extends gold.mart_executive_summary with Gemini retention insights from ai.customer_concierge. Lives in the ai schema to keep the gold layer free of AI dependencies. Use for: at-risk customer outreach, CCO AI Retention Insights page, BigQuery Data Agent AI queries.",
+  tags: ["ai", "daily_refresh", "analyst", "data_agent"]
+}
+
+SELECT
+  m.*,
+  ai.gemini_persona_and_strategy  AS gemini_insight,
+  ai.generation_status            AS ai_status
+FROM ${ref("mart_executive_summary")} m
+LEFT JOIN ${ref("customer_concierge")} ai USING (customer_id)

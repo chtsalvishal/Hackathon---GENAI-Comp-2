@@ -1,7 +1,7 @@
 config {
   type: "table",
   schema: "gold",
-  description: "Customer dimension — SCD Type 1 with lifetime value and behavioural segment metrics",
+  description: "Customer dimension — SCD Type 1 with lifetime value and behavioural segment metrics. Recency (days_since_last_purchase) and churn_risk are computed relative to the dataset's max order date, not CURRENT_DATE, so classifications remain meaningful for historical datasets.",
   tags: ["gold", "daily_refresh"],
   bigquery: {
     clusterBy: ["customer_segment", "country"]
@@ -42,43 +42,79 @@ config {
   }
 }
 
+-- Reference date: max order date in the dataset.
+-- Using CURRENT_DATE() would mark all customers in a historical dataset as "Churned"
+-- because the data ends in the past. This pattern matches product_upsell.sqlx.
+WITH ref_date AS (
+  SELECT MAX(order_date) AS as_of_date
+  FROM ${ref("stg_orders")}
+),
+
+customer_orders AS (
+  SELECT
+    c.customer_id,
+    c.first_name,
+    c.last_name,
+    CONCAT(c.first_name, ' ', c.last_name)              AS customer_name,
+    c.email,
+    c.phone,
+    c.city,
+    c.country,
+    c.created_date,
+    COUNT(DISTINCT o.order_id)                           AS order_count,
+    COALESCE(SUM(o.total_amount), 0)                     AS total_lifetime_value,
+    COALESCE(AVG(o.total_amount), 0)                     AS avg_order_value,
+    MAX(o.order_date)                                    AS last_purchase_date,
+    MIN(o.order_date)                                    AS first_purchase_date
+  FROM ${ref("stg_customers")} c
+  LEFT JOIN ${ref("stg_orders")} o USING (customer_id)
+  GROUP BY
+    c.customer_id,
+    c.first_name,
+    c.last_name,
+    c.email,
+    c.phone,
+    c.city,
+    c.country,
+    c.created_date
+)
+
 SELECT
-  c.customer_id,
-  c.first_name,
-  c.last_name,
-  CONCAT(c.first_name, ' ', c.last_name)              AS customer_name,
-  c.email,
-  c.phone,
-  c.city,
-  c.country,
-  c.created_date,
-  COUNT(DISTINCT o.order_id)                           AS order_count,
-  COALESCE(SUM(o.total_amount), 0)                     AS total_lifetime_value,
-  COALESCE(AVG(o.total_amount), 0)                     AS avg_order_value,
-  MAX(o.order_date)                                    AS last_purchase_date,
-  MIN(o.order_date)                                    AS first_purchase_date,
-  DATE_DIFF(CURRENT_DATE(), MAX(o.order_date), DAY)    AS days_since_last_purchase,
+  co.customer_id,
+  co.first_name,
+  co.last_name,
+  co.customer_name,
+  co.email,
+  co.phone,
+  co.city,
+  co.country,
+  co.created_date,
+  co.order_count,
+  co.total_lifetime_value,
+  co.avg_order_value,
+  co.last_purchase_date,
+  co.first_purchase_date,
+
+  -- Recency relative to dataset max date (not wall-clock time)
+  DATE_DIFF(r.as_of_date, co.last_purchase_date, DAY)  AS days_since_last_purchase,
+
+  -- Segment by lifetime spend
   CASE
-    WHEN SUM(o.total_amount) >= 10000 THEN 'Platinum'
-    WHEN SUM(o.total_amount) >= 5000  THEN 'Gold'
-    WHEN SUM(o.total_amount) >= 1000  THEN 'Silver'
+    WHEN co.total_lifetime_value >= 10000 THEN 'Platinum'
+    WHEN co.total_lifetime_value >= 5000  THEN 'Gold'
+    WHEN co.total_lifetime_value >= 1000  THEN 'Silver'
     ELSE 'Bronze'
-  END                                                  AS customer_segment,
+  END                                                   AS customer_segment,
+
+  -- Churn risk relative to dataset max date
   CASE
-    WHEN DATE_DIFF(CURRENT_DATE(), MAX(o.order_date), DAY) > 365 THEN 'Churned'
-    WHEN DATE_DIFF(CURRENT_DATE(), MAX(o.order_date), DAY) > 180 THEN 'At Risk'
-    WHEN DATE_DIFF(CURRENT_DATE(), MAX(o.order_date), DAY) > 90  THEN 'Cooling'
+    WHEN DATE_DIFF(r.as_of_date, co.last_purchase_date, DAY) > 365 THEN 'Churned'
+    WHEN DATE_DIFF(r.as_of_date, co.last_purchase_date, DAY) > 180 THEN 'At Risk'
+    WHEN DATE_DIFF(r.as_of_date, co.last_purchase_date, DAY) > 90  THEN 'Cooling'
     ELSE 'Active'
-  END                                                  AS churn_risk,
-  CURRENT_TIMESTAMP()                                  AS updated_at
-FROM ${ref("stg_customers")} c
-LEFT JOIN ${ref("stg_orders")} o USING (customer_id)
-GROUP BY
-  c.customer_id,
-  c.first_name,
-  c.last_name,
-  c.email,
-  c.phone,
-  c.city,
-  c.country,
-  c.created_date
+  END                                                   AS churn_risk,
+
+  CURRENT_TIMESTAMP()                                   AS updated_at
+
+FROM customer_orders co
+CROSS JOIN ref_date r

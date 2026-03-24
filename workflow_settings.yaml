@@ -3,5 +3,4 @@ defaultDataset: gold
 defaultAssertionDataset: dataform_assertions
 defaultLocation: australia-southeast1
 vars:
-  execution_date: ""
   environment: production

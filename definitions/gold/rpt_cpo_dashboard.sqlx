@@ -1,30 +1,32 @@
 config {
   type: "view",
   schema: "gold",
-  description: "CPO Dashboard — product revenue, units sold, margins, and AI upsell strategies by category, sub-category, and brand. Powers the Looker Studio CPO Dashboard.",
+  description: "CPO Dashboard — flat order-item-grain fact view with product category, sub-category, brand, margin, and AI upsell strategy. Looker Studio aggregates category revenue, product leaderboard, and brand performance from this single source.",
   tags: ["gold", "daily_refresh", "dashboard", "cpo"]
 }
 
+-- Flat order-item-grain view. No GROUP BY — Looker Studio aggregates as needed.
+-- Supports: revenue by category/brand/product, units sold, margin analysis,
+--           category trend, top product table, AI upsell strategy filter.
 SELECT
-  FORMAT_DATE('%Y-%m', o.order_date)            AS year_month,
+  oi.order_item_id,
   o.order_date,
+  FORMAT_DATE('%Y-%m', o.order_date)                           AS year_month,
+  o.customer_id,
+  p.product_id,
+  p.product_name,
   p.category,
   p.sub_category,
   p.brand,
-  p.product_id,
-  p.product_name,
-  p.unit_price,
-  p.margin_pct,
-  COUNT(DISTINCT o.order_id)                     AS order_count,
-  COUNT(DISTINCT o.customer_id)                  AS unique_buyers,
-  SUM(oi.quantity)                               AS units_sold,
-  SUM(oi.subtotal)                               AS revenue,
-  SAFE_DIVIDE(SUM(oi.subtotal), SUM(oi.quantity)) AS avg_unit_price,
+  oi.quantity                                                   AS units_sold,
+  oi.unit_price,
+  oi.discount,
+  oi.subtotal                                                   AS item_revenue,
+  ROUND(p.margin_pct, 2)                                        AS margin_pct,
   u.gemini_upsell_strategy,
-  u.generation_status                            AS upsell_status
+  u.generation_status                                           AS upsell_status
 FROM ${ref("fct_orders")} o
-JOIN ${ref("stg_order_items")} oi USING (order_id)
-JOIN ${ref("dim_products")} p    USING (product_id)
+JOIN ${ref("stg_order_items")} oi   USING (order_id)
+JOIN ${ref("dim_products")} p       USING (product_id)
 LEFT JOIN ${ref("product_upsell")} u USING (product_id)
 WHERE o.order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)
-GROUP BY 1,2,3,4,5,6,7,8,9,15,16

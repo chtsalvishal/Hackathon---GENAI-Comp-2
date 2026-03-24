@@ -1,77 +1,78 @@
 config {
-  type: "view",
+  type: "table",
   schema: "gold",
-  description: "Executive summary view — single wide table optimised for BigQuery Data Agent (Gemini natural language queries). Combines customer profile, order history, churn risk, revenue metrics, and Gemini AI insights into one queryable surface. Use this table to answer questions like: 'Which customers are at risk of churning?', 'What is our revenue by country this month?', 'Who are our top Platinum customers?', 'Show me customers with AI retention strategies'.",
-  tags: ["gold", "daily_refresh", "analyst", "data_agent"]
+  description: "Executive summary — materialized daily. One row per customer with segment, churn risk, top category, and month-over-month order metrics. No AI columns (see ai.mart_executive_summary_enriched for Gemini insights). Optimised for Looker Studio CCO dashboard and BigQuery Data Agent queries.",
+  tags: ["gold", "daily_refresh", "analyst", "data_agent"],
+  bigquery: {
+    clusterBy: ["customer_segment", "churn_risk", "country"]
+  }
 }
 
+-- Reference date: dataset max order date (not CURRENT_DATE — avoids zero MTD/LTD on historical data)
+WITH ref_date AS (
+  SELECT
+    MAX(order_date)                                                    AS as_of_date,
+    DATE_TRUNC(MAX(order_date), MONTH)                                 AS current_month,
+    DATE_TRUNC(DATE_SUB(MAX(order_date), INTERVAL 1 MONTH), MONTH)    AS prev_month
+  FROM ${ref("fct_orders")}
+),
+
+top_category AS (
+  -- Most-purchased category per customer by total spend (all-time)
+  SELECT
+    o.customer_id,
+    p.category                                                         AS top_category,
+    SUM(oi.subtotal)                                                   AS top_category_spend
+  FROM ${ref("fct_orders")} o
+  JOIN ${ref("stg_order_items")} oi USING (order_id)
+  JOIN ${ref("dim_products")} p     USING (product_id)
+  GROUP BY 1, 2
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY o.customer_id ORDER BY SUM(oi.subtotal) DESC) = 1
+),
+
+orders_current_month AS (
+  SELECT
+    customer_id,
+    COUNT(DISTINCT order_id)  AS orders_this_month,
+    SUM(total_amount)         AS revenue_this_month
+  FROM ${ref("fct_orders")}
+  CROSS JOIN ref_date
+  WHERE DATE_TRUNC(order_date, MONTH) = ref_date.current_month
+  GROUP BY 1
+),
+
+orders_prev_month AS (
+  SELECT
+    customer_id,
+    COUNT(DISTINCT order_id)  AS orders_last_month,
+    SUM(total_amount)         AS revenue_last_month
+  FROM ${ref("fct_orders")}
+  CROSS JOIN ref_date
+  WHERE DATE_TRUNC(order_date, MONTH) = ref_date.prev_month
+  GROUP BY 1
+)
+
 SELECT
-  -- Customer identity (analyst-safe)
   c.customer_id,
   c.customer_segment,
   c.churn_risk,
   c.city,
   c.country,
-  c.created_date                                            AS customer_since,
-
-  -- Order metrics
+  c.created_date                                                       AS customer_since,
   c.order_count,
   c.last_purchase_date,
   c.first_purchase_date,
   c.days_since_last_purchase,
   c.lifetime_value_band,
-
-  -- Top category purchased
-  top_cat.top_category,
-  top_cat.top_category_spend,
-
-  -- Revenue this calendar month
-  COALESCE(mtd.orders_this_month, 0)                        AS orders_this_month,
-  COALESCE(mtd.revenue_this_month, 0)                       AS revenue_this_month,
-
-  -- Revenue last calendar month
-  COALESCE(lm.orders_last_month, 0)                         AS orders_last_month,
-  COALESCE(lm.revenue_last_month, 0)                        AS revenue_last_month,
-
-  -- Gemini AI insight
-  ai.gemini_insight,
-  ai.generation_status                                      AS ai_status,
-
+  tc.top_category,
+  tc.top_category_spend,
+  COALESCE(cm.orders_this_month,  0)                                   AS orders_this_month,
+  COALESCE(cm.revenue_this_month, 0)                                   AS revenue_this_month,
+  COALESCE(pm.orders_last_month,  0)                                   AS orders_last_month,
+  COALESCE(pm.revenue_last_month, 0)                                   AS revenue_last_month,
   c.updated_at
 
 FROM ${ref("dim_customers_analyst")} c
-
-LEFT JOIN (
-  SELECT
-    o.customer_id,
-    p.category                                              AS top_category,
-    SUM(oi.subtotal)                                        AS top_category_spend
-  FROM ${ref("fct_orders")} o
-  JOIN ${ref("stg_order_items")} oi USING (order_id)
-  JOIN ${ref("dim_products")} p    USING (product_id)
-  GROUP BY 1, 2
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY o.customer_id ORDER BY SUM(oi.subtotal) DESC) = 1
-) top_cat USING (customer_id)
-
-LEFT JOIN (
-  SELECT customer_id,
-    COUNT(DISTINCT order_id)  AS orders_this_month,
-    SUM(total_amount)         AS revenue_this_month
-  FROM ${ref("fct_orders")}
-  WHERE DATE_TRUNC(order_date, MONTH) = DATE_TRUNC(CURRENT_DATE(), MONTH)
-  GROUP BY 1
-) mtd USING (customer_id)
-
-LEFT JOIN (
-  SELECT customer_id,
-    COUNT(DISTINCT order_id)  AS orders_last_month,
-    SUM(total_amount)         AS revenue_last_month
-  FROM ${ref("fct_orders")}
-  WHERE DATE_TRUNC(order_date, MONTH) = DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH), MONTH)
-  GROUP BY 1
-) lm USING (customer_id)
-
-LEFT JOIN (
-  SELECT customer_id, gemini_persona_and_strategy AS gemini_insight, generation_status
-  FROM ${ref("customer_concierge")}
-) ai USING (customer_id)
+LEFT JOIN top_category          tc USING (customer_id)
+LEFT JOIN orders_current_month  cm USING (customer_id)
+LEFT JOIN orders_prev_month     pm USING (customer_id)

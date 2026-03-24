@@ -27,8 +27,7 @@ WITH order_items_agg AS (
   SELECT
     order_id,
     COUNT(order_item_id)       AS item_count,
-    AVG(unit_price)            AS avg_item_price,
-    SUM(subtotal)              AS items_subtotal
+    AVG(unit_price)            AS avg_item_price
   FROM ${ref("stg_order_items")}
   GROUP BY order_id
 ),
