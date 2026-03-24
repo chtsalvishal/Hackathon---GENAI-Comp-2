@@ -1,0 +1,6 @@
+defaultProject: vishal-sandpit-474523
+defaultDataset: gold
+defaultLocation: australia-southeast1
+vars:
+  execution_date: ""
+  environment: production
