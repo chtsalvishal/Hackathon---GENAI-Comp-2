@@ -1,0 +1,28 @@
+config {
+  type: "view",
+  schema: "gold",
+  description: "CCO Dashboard — monthly revenue trends, customer segment distribution, churn risk breakdown by country. Powers the Looker Studio CCO Dashboard.",
+  tags: ["gold", "daily_refresh", "dashboard", "cco"]
+}
+
+SELECT
+  s.summary_date,
+  FORMAT_DATE('%Y-%m', s.summary_date)          AS year_month,
+  s.country,
+  s.order_count,
+  s.unique_customers,
+  s.gross_revenue,
+  s.avg_order_value,
+  s.new_customers,
+  s.repeat_customers,
+  SAFE_DIVIDE(s.repeat_customers, s.unique_customers) AS repeat_rate,
+  c.customer_segment,
+  c.churn_risk,
+  COUNT(c.customer_id)                           AS segment_customer_count
+FROM ${ref("mart_revenue_summary")} s
+CROSS JOIN (
+  SELECT customer_id, customer_segment, churn_risk, country
+  FROM ${ref("dim_customers_analyst")}
+) c
+WHERE s.summary_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12

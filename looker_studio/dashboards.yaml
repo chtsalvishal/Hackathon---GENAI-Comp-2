@@ -1,0 +1,201 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Intelia Looker Studio Dashboards
+# BQ views are Dataform-managed and rebuild nightly (daily_refresh tag).
+# Open the create_url in your browser while signed in as vishal@intelia.com.au
+# to auto-connect the BigQuery data source and start adding charts.
+# ─────────────────────────────────────────────────────────────────────────────
+
+project_id: vishal-sandpit-474523
+region: australia-southeast1
+
+dashboards:
+
+  # ───────────────────────────────────────────────────────────────────
+  # 1. CCO — Chief Customer Officer
+  # ───────────────────────────────────────────────────────────────────
+  - id: cco
+    name: "Intelia CCO Dashboard — Customer Health & Revenue"
+    persona: Chief Customer Officer
+    primary_table: gold.rpt_cco_dashboard
+    secondary_tables:
+      - gold.mart_executive_summary
+      - ai.customer_concierge
+    create_url: "https://lookerstudio.google.com/c/reporting/create?c.mode=CREATE&ds.connector=BIG_QUERY&ds.type=TABLE&ds.projectId=vishal-sandpit-474523&ds.datasetId=gold&ds.tableId=rpt_cco_dashboard&r.reportName=Intelia+CCO+Dashboard"
+
+    pages:
+      - name: Revenue Overview
+        charts:
+          - type: scorecard
+            metric: gross_revenue
+            label: "Total Revenue (24 months)"
+          - type: scorecard
+            metric: unique_customers
+            label: "Unique Customers"
+          - type: scorecard
+            metric: avg_order_value
+            label: "Avg Order Value"
+          - type: scorecard
+            metric: repeat_rate
+            label: "Repeat Purchase Rate"
+            format: percent
+          - type: time_series
+            dimension: summary_date
+            metric: gross_revenue
+            breakdown: country
+            label: "Monthly Revenue by Country"
+          - type: bar_chart
+            dimension: country
+            metric: gross_revenue
+            label: "Revenue by Country (24M)"
+            sort: desc
+
+      - name: Customer Segments
+        charts:
+          - type: pie_chart
+            dimension: customer_segment
+            metric: segment_customer_count
+            label: "Customers by Segment"
+          - type: bar_chart
+            dimension: churn_risk
+            metric: segment_customer_count
+            label: "Customers by Churn Risk"
+            color_coding: "High=red, Medium=amber, Low=green"
+          - type: pivot_table
+            row_dimension: customer_segment
+            col_dimension: churn_risk
+            metric: segment_customer_count
+            label: "Segment × Churn Risk Matrix"
+          - type: time_series
+            dimension: year_month
+            metric: new_customers
+            secondary_metric: repeat_customers
+            label: "New vs Repeat Customers"
+
+      - name: AI Retention Insights
+        data_source: gold.mart_executive_summary
+        charts:
+          - type: table
+            dimensions: [customer_id, customer_segment, churn_risk, country, lifetime_value_band]
+            metrics: [orders_this_month, revenue_this_month]
+            extra_columns: [gemini_insight, ai_status]
+            filter: "churn_risk IN ('High', 'Medium')"
+            label: "At-Risk Customers with Gemini Retention Strategies"
+
+  # ───────────────────────────────────────────────────────────────────
+  # 2. CPO — Chief Product Officer
+  # ───────────────────────────────────────────────────────────────────
+  - id: cpo
+    name: "Intelia CPO Dashboard — Product Performance & Upsell"
+    persona: Chief Product Officer
+    primary_table: gold.rpt_cpo_dashboard
+    secondary_tables:
+      - ai.product_upsell
+    create_url: "https://lookerstudio.google.com/c/reporting/create?c.mode=CREATE&ds.connector=BIG_QUERY&ds.type=TABLE&ds.projectId=vishal-sandpit-474523&ds.datasetId=gold&ds.tableId=rpt_cpo_dashboard&r.reportName=Intelia+CPO+Dashboard"
+
+    pages:
+      - name: Category Performance
+        charts:
+          - type: scorecard
+            metric: revenue
+            label: "Total Product Revenue"
+          - type: scorecard
+            metric: units_sold
+            label: "Units Sold"
+          - type: scorecard
+            metric: avg_unit_price
+            label: "Avg Unit Price"
+          - type: scorecard
+            metric: margin_pct
+            label: "Avg Margin %"
+            format: percent
+          - type: bar_chart
+            dimension: category
+            metric: revenue
+            label: "Revenue by Category"
+            sort: desc
+          - type: time_series
+            dimension: year_month
+            metric: revenue
+            breakdown: category
+            label: "Category Revenue Trend"
+
+      - name: Product Leaderboard
+        charts:
+          - type: table
+            dimensions: [product_name, category, brand]
+            metrics: [revenue, units_sold, unique_buyers, margin_pct]
+            sort: revenue desc
+            rows: 20
+            label: "Top 20 Products by Revenue"
+          - type: bar_chart
+            dimension: brand
+            metric: revenue
+            label: "Revenue by Brand"
+            sort: desc
+
+      - name: AI Upsell Strategies
+        charts:
+          - type: table
+            dimensions: [product_name, category, sub_category, brand]
+            metrics: [revenue, units_sold]
+            extra_columns: [gemini_upsell_strategy, upsell_status]
+            filter: "upsell_status = 'SUCCEEDED'"
+            label: "Products with Gemini Upsell Strategies"
+            rows: 50
+
+  # ───────────────────────────────────────────────────────────────────
+  # 3. CTO — Chief Technology Officer
+  # ───────────────────────────────────────────────────────────────────
+  - id: cto
+    name: "Intelia CTO Dashboard — Pipeline Health & Data Quality"
+    persona: Chief Technology Officer
+    primary_table: governance.rpt_cto_dashboard
+    secondary_tables:
+      - governance.business_glossary
+    create_url: "https://lookerstudio.google.com/c/reporting/create?c.mode=CREATE&ds.connector=BIG_QUERY&ds.type=TABLE&ds.projectId=vishal-sandpit-474523&ds.datasetId=governance&ds.tableId=rpt_cto_dashboard&r.reportName=Intelia+CTO+Dashboard"
+
+    pages:
+      - name: Pipeline Overview
+        charts:
+          - type: scorecard
+            metric: COUNT(batch_id)
+            label: "Total Pipeline Runs"
+          - type: scorecard
+            metric: "COUNTIF(status='SUCCESS')"
+            label: "Successful Runs"
+            color: green
+          - type: scorecard
+            metric: "COUNTIF(status='FAILED')"
+            label: "Failed Runs"
+            color: red
+          - type: scorecard
+            metric: SUM(rows_merged)
+            label: "Total Rows Merged"
+          - type: pie_chart
+            dimension: status
+            metric: COUNT(batch_id)
+            label: "Run Status Distribution"
+          - type: time_series
+            dimension: run_date
+            metric: COUNT(batch_id)
+            breakdown: status
+            label: "Pipeline Runs by Date and Status"
+
+      - name: Throughput & Latency
+        charts:
+          - type: bar_chart
+            dimension: entity
+            metric: SUM(rows_merged)
+            label: "Rows Merged by Entity"
+            sort: desc
+          - type: time_series
+            dimension: run_date
+            metric: AVG(duration_secs)
+            label: "Avg Pipeline Duration (seconds)"
+          - type: table
+            dimensions: [run_ts, entity, status, source_file]
+            metrics: [rows_merged, rows_inserted, rows_updated, duration_secs]
+            extra_columns: [error_message]
+            sort: run_ts desc
+            rows: 50
+            label: "Recent Pipeline Runs (detailed)"

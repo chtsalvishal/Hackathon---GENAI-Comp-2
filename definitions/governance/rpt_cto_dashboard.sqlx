@@ -1,0 +1,23 @@
+config {
+  type: "view",
+  schema: "governance",
+  description: "CTO Dashboard — pipeline run history, row throughput, durations, error rates, and data freshness. Powers the Looker Studio CTO Dashboard.",
+  tags: ["governance", "daily_refresh", "dashboard", "cto"]
+}
+
+SELECT
+  DATE(started_at)                                          AS run_date,
+  FORMAT_DATETIME('%Y-%m-%dT%H:%M', started_at)            AS run_ts,
+  entity,
+  status,
+  source_file,
+  rows_merged,
+  rows_inserted,
+  rows_updated,
+  error_message,
+  DATETIME_DIFF(completed_at, started_at, SECOND)          AS duration_secs,
+  dataform_run_id,
+  started_at,
+  completed_at
+FROM ${ref("batch_audit_log")}
+ORDER BY started_at DESC
