@@ -14,14 +14,23 @@ resource "google_pubsub_topic" "delta_ingest" {
   message_retention_duration = "86600s" # 24 hours
 }
 
-# GCS needs publish rights on the topic to send bucket notifications
+# GCS service account — needed for both direct notifications and Eventarc GCS triggers
 data "google_storage_project_service_account" "gcs_sa" {
   project = var.project_id
 }
 
+# Topic-level: lets GCS publish to the delta-ingest Pub/Sub topic directly
 resource "google_pubsub_topic_iam_member" "gcs_publisher" {
   project = var.project_id
   topic   = google_pubsub_topic.delta_ingest.name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${data.google_storage_project_service_account.gcs_sa.email_address}"
+}
+
+# Project-level: required by Eventarc for GCS-sourced triggers (Eventarc manages
+# its own Pub/Sub topic internally and needs the GCS SA to publish to it)
+resource "google_project_iam_member" "gcs_pubsub_publisher" {
+  project = var.project_id
   role    = "roles/pubsub.publisher"
   member  = "serviceAccount:${data.google_storage_project_service_account.gcs_sa.email_address}"
 }

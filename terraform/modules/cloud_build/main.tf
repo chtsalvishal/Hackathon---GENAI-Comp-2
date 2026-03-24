@@ -1,16 +1,24 @@
 # ---------------------------------------------------------------------------
-# Cloud Build — GitHub-connected CI/CD triggers.
+# Cloud Build — CI/CD triggers wired to GitHub.
 #
-#   validate-trigger  — fires on every pull request; runs terraform fmt check,
-#                       terraform validate, and Dataform compilation dry-run.
-#   deploy-trigger    — fires on push to main branch; runs terraform apply
-#                       and triggers a Dataform full-refresh workflow invocation.
+# SETUP REQUIRED before applying this module:
+#   1. Go to Cloud Console → Cloud Build → Repositories (2nd gen)
+#   2. Click "Create host connection" → choose GitHub
+#   3. Install the Cloud Build GitHub App on the repo
+#   4. Note the installation ID from the URL
+#   5. Set github_app_installation_id in terraform.tfvars
+#   6. Re-run terraform apply
 #
-# The GitHub connection must be authorised manually in the Cloud Console after
-# first deploy (Cloud Build → Repositories → Connect repository).
+# Until github_app_installation_id is set (non-zero), this module creates
+# nothing so the rest of the apply succeeds.
 # ---------------------------------------------------------------------------
 
+locals {
+  github_connected = var.github_app_installation_id != 0
+}
+
 resource "google_cloudbuildv2_connection" "github" {
+  count    = local.github_connected ? 1 : 0
   project  = var.project_id
   location = var.region
   name     = "github-connection"
@@ -24,18 +32,16 @@ resource "google_cloudbuildv2_connection" "github" {
 }
 
 resource "google_cloudbuildv2_repository" "intelia_warehouse" {
+  count             = local.github_connected ? 1 : 0
   project           = var.project_id
   location          = var.region
   name              = "intelia-warehouse"
-  parent_connection = google_cloudbuildv2_connection.github.name
+  parent_connection = google_cloudbuildv2_connection.github[0].name
   remote_uri        = "https://github.com/${var.github_repo}.git"
 }
 
-# ---------------------------------------------------------------------------
-# PR Validation Trigger
-# ---------------------------------------------------------------------------
-
 resource "google_cloudbuild_trigger" "validate" {
+  count           = local.github_connected ? 1 : 0
   project         = var.project_id
   location        = var.region
   name            = "validate-pr"
@@ -43,7 +49,7 @@ resource "google_cloudbuild_trigger" "validate" {
   service_account = "projects/${var.project_id}/serviceAccounts/${var.cloudbuild_sa_email}"
 
   repository_event_config {
-    repository = google_cloudbuildv2_repository.intelia_warehouse.id
+    repository = google_cloudbuildv2_repository.intelia_warehouse[0].id
     pull_request {
       branch          = ".*"
       comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"
@@ -53,19 +59,16 @@ resource "google_cloudbuild_trigger" "validate" {
   filename = "cloudbuild-validate.yaml"
 }
 
-# ---------------------------------------------------------------------------
-# Deploy Trigger (push to main)
-# ---------------------------------------------------------------------------
-
 resource "google_cloudbuild_trigger" "deploy" {
+  count           = local.github_connected ? 1 : 0
   project         = var.project_id
   location        = var.region
   name            = "deploy-main"
-  description     = "Deploys Terraform changes and triggers Dataform full-refresh on push to main."
+  description     = "Deploys Terraform and triggers Dataform full-refresh on push to main."
   service_account = "projects/${var.project_id}/serviceAccounts/${var.cloudbuild_sa_email}"
 
   repository_event_config {
-    repository = google_cloudbuildv2_repository.intelia_warehouse.id
+    repository = google_cloudbuildv2_repository.intelia_warehouse[0].id
     push {
       branch = "^main$"
     }

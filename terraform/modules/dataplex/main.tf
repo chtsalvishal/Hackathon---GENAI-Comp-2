@@ -93,7 +93,7 @@ resource "google_dataplex_datascan" "fct_orders_quality" {
     rules {
       column      = "order_id"
       dimension   = "COMPLETENESS"
-      name        = "order_id_not_null"
+      name        = "order-id-not-null"
       description = "Every order must have a non-null order_id."
       non_null_expectation {}
     }
@@ -101,7 +101,7 @@ resource "google_dataplex_datascan" "fct_orders_quality" {
     rules {
       column      = "order_date"
       dimension   = "VALIDITY"
-      name        = "order_date_not_future"
+      name        = "order-date-not-future"
       description = "order_date must not be in the future."
       row_condition_expectation {
         sql_expression = "order_date <= CURRENT_DATE()"
@@ -111,7 +111,7 @@ resource "google_dataplex_datascan" "fct_orders_quality" {
     rules {
       column      = "total_amount"
       dimension   = "VALIDITY"
-      name        = "total_amount_positive"
+      name        = "total-amount-positive"
       description = "total_amount must be >= 0."
       range_expectation {
         min_value          = "0"
@@ -121,7 +121,7 @@ resource "google_dataplex_datascan" "fct_orders_quality" {
 
     rules {
       dimension   = "UNIQUENESS"
-      name        = "order_id_unique"
+      name        = "order-id-unique"
       description = "order_id must be unique across all orders."
       column      = "order_id"
       uniqueness_expectation {}
@@ -158,7 +158,7 @@ resource "google_dataplex_datascan" "dim_customers_quality" {
     rules {
       column      = "customer_id"
       dimension   = "COMPLETENESS"
-      name        = "customer_id_not_null"
+      name        = "customer-id-not-null"
       description = "Every customer must have a non-null customer_id."
       non_null_expectation {}
     }
@@ -166,7 +166,7 @@ resource "google_dataplex_datascan" "dim_customers_quality" {
     rules {
       column      = "customer_id"
       dimension   = "UNIQUENESS"
-      name        = "customer_id_unique"
+      name        = "customer-id-unique"
       description = "customer_id must be unique."
       uniqueness_expectation {}
     }
@@ -174,7 +174,7 @@ resource "google_dataplex_datascan" "dim_customers_quality" {
     rules {
       column      = "email"
       dimension   = "VALIDITY"
-      name        = "email_format"
+      name        = "email-format"
       description = "email must contain an @ symbol."
       row_condition_expectation {
         sql_expression = "email LIKE '%@%'"
@@ -212,7 +212,7 @@ resource "google_dataplex_datascan" "dim_products_quality" {
     rules {
       column      = "product_id"
       dimension   = "COMPLETENESS"
-      name        = "product_id_not_null"
+      name        = "product-id-not-null"
       description = "Every product must have a non-null product_id."
       non_null_expectation {}
     }
@@ -220,7 +220,7 @@ resource "google_dataplex_datascan" "dim_products_quality" {
     rules {
       column      = "unit_price"
       dimension   = "VALIDITY"
-      name        = "unit_price_positive"
+      name        = "unit-price-positive"
       description = "unit_price must be > 0."
       range_expectation {
         min_value          = "0"

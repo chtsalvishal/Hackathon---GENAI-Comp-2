@@ -12,7 +12,7 @@ main:
     - log_event:
         call: sys.log
         args:
-          text: ${"delta-ingest triggered by event: " + json.encode_to_string(event)}
+          text: "delta-ingest triggered"
           severity: INFO
 
     - create_compilation:
@@ -28,7 +28,7 @@ main:
     - check_compile:
         switch:
           - condition: ${compile_resp.code != 200}
-            raise: ${"Compilation failed with HTTP " + string(compile_resp.code)}
+            raise: ${"Compilation failed HTTP " + string(compile_resp.code)}
 
     - extract_compilation_name:
         assign:
@@ -37,7 +37,7 @@ main:
     - log_compilation:
         call: sys.log
         args:
-          text: ${"Compilation result: " + compilation_name}
+          text: ${"Compilation result - " + compilation_name}
           severity: INFO
 
     - create_invocation:
@@ -58,7 +58,7 @@ main:
     - check_invoke_created:
         switch:
           - condition: ${invoke_resp.code != 200}
-            raise: ${"Invocation creation failed with HTTP " + string(invoke_resp.code)}
+            raise: ${"Invocation creation failed HTTP " + string(invoke_resp.code)}
 
     - extract_invocation_name:
         assign:
@@ -68,7 +68,7 @@ main:
     - log_invocation:
         call: sys.log
         args:
-          text: ${"Invocation started: " + invocation_name}
+          text: ${"Invocation started - " + invocation_name}
           severity: INFO
 
     - poll_loop:
@@ -99,15 +99,15 @@ main:
     - succeeded:
         call: sys.log
         args:
-          text: ${"Invocation SUCCEEDED: " + invocation_name}
+          text: ${"Invocation SUCCEEDED - " + invocation_name}
           severity: INFO
         next: done
 
     - failed:
-        raise: ${"Dataform invocation FAILED: " + invocation_name + " | " + json.encode_to_string(poll_resp.body)}
+        raise: ${"Dataform invocation FAILED - " + invocation_name}
 
     - cancelled:
-        raise: ${"Dataform invocation CANCELLED: " + invocation_name}
+        raise: ${"Dataform invocation CANCELLED - " + invocation_name}
 
     - done:
         return: ${invocation_name}

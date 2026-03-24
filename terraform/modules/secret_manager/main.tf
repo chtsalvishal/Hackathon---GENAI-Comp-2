@@ -97,3 +97,20 @@ resource "google_secret_manager_secret_iam_member" "cloudbuild_sa_github_token" 
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.cloudbuild_sa_email}"
 }
+
+# ---------------------------------------------------------------------------
+# IAM — Cloud Build service agent (GCP-managed) needs access to github-token
+# to authenticate the GitHub App connection. The service agent email follows
+# the pattern service-{project_number}@gcp-sa-cloudbuild.iam.gserviceaccount.com
+# ---------------------------------------------------------------------------
+
+data "google_project" "current" {
+  project_id = var.project_id
+}
+
+resource "google_secret_manager_secret_iam_member" "cloudbuild_agent_github_token" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.github_token.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-cloudbuild.iam.gserviceaccount.com"
+}
