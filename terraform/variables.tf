@@ -19,3 +19,9 @@ variable "github_repo" {
   type        = string
   default     = "chtsalvishal/Hackathon---GENAI-Comp-2"
 }
+
+variable "github_app_installation_id" {
+  description = "GitHub App installation ID for the Cloud Build GitHub connection."
+  type        = number
+  default     = 0
+}

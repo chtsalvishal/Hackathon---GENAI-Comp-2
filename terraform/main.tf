@@ -183,11 +183,12 @@ module "dataplex" {
 # 14. Cloud Build — CI/CD triggers wired to the GitHub repository.
 # ---------------------------------------------------------------------------
 module "cloud_build" {
-  source              = "./modules/cloud_build"
-  project_id          = var.project_id
-  region              = var.region
-  github_repo         = var.github_repo
-  cloudbuild_sa_email = module.iam.cloudbuild_sa_email
+  source                     = "./modules/cloud_build"
+  project_id                 = var.project_id
+  region                     = var.region
+  github_repo                = var.github_repo
+  cloudbuild_sa_email        = module.iam.cloudbuild_sa_email
+  github_app_installation_id = var.github_app_installation_id
 
   depends_on = [module.project_services, module.iam, module.secret_manager]
 }

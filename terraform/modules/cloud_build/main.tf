@@ -29,6 +29,12 @@ resource "google_cloudbuildv2_connection" "github" {
       oauth_token_secret_version = "projects/${var.project_id}/secrets/github-token/versions/latest"
     }
   }
+
+  # The OAuth token secret is managed by the Cloud Console GitHub App setup.
+  # Prevent Terraform from overwriting the working credential on updates.
+  lifecycle {
+    ignore_changes = [github_config]
+  }
 }
 
 resource "google_cloudbuildv2_repository" "intelia_warehouse" {
