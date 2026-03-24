@@ -1,0 +1,73 @@
+config {
+  type: "table",
+  schema: "governance",
+  description: "Business glossary — authoritative definitions for all key terms in the Intelia data warehouse. Queryable by all stakeholders and visible in BigQuery.",
+  tags: ["governance", "daily_refresh"]
+}
+
+SELECT term, definition, domain, owner, update_frequency, example_query, related_tables
+FROM UNNEST([
+  STRUCT(
+    'Customer'           AS term,
+    'An individual or organisation that has placed at least one order. Lifetime value, churn risk, and behavioural segment (Platinum/Gold/Silver/Bronze) are derived daily from order history.' AS definition,
+    'Customer'           AS domain,
+    'CCO'                AS owner,
+    'Daily'              AS update_frequency,
+    'SELECT customer_id, customer_segment, churn_risk FROM `gold.dim_customers` WHERE churn_risk = "At Risk"' AS example_query,
+    'gold.dim_customers, gold.dim_customers_analyst, ai.customer_concierge' AS related_tables
+  ),
+  STRUCT(
+    'Order',
+    'A confirmed purchase transaction linking a customer to one or more products. Source of truth for revenue, item counts, and first-order detection.',
+    'Sales',
+    'CPO',
+    'Daily',
+    'SELECT order_id, total_amount, item_count FROM `gold.fct_orders` WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)',
+    'gold.fct_orders, silver.stg_orders, silver.stg_order_items'
+  ),
+  STRUCT(
+    'Revenue',
+    'Pre-aggregated monthly revenue roll-up by customer segment and country. Primary source for CCO dashboards and MoM trend reporting.',
+    'Finance',
+    'CCO',
+    'Daily',
+    'SELECT month, customer_segment, total_revenue FROM `gold.mart_revenue_summary` ORDER BY month DESC LIMIT 12',
+    'gold.mart_revenue_summary, gold.fct_orders, gold.dim_customers'
+  ),
+  STRUCT(
+    'Product',
+    'A catalogue item available for purchase. Includes retail price, internal cost, gross margin %, stock quantity, and active status. Pricing fields are classified Internal Use Only.',
+    'Product',
+    'CPO',
+    'Daily',
+    'SELECT product_name, category, margin_pct FROM `gold.dim_products` WHERE is_active = TRUE ORDER BY margin_pct DESC',
+    'gold.dim_products, silver.stg_products, ai.product_upsell'
+  ),
+  STRUCT(
+    'Churn Risk',
+    'A behavioural classification for customers based on days since last purchase: Active (<90 days), Cooling (90–180 days), At Risk (180–365 days), Churned (>365 days). Recalculated daily.',
+    'Customer',
+    'CCO',
+    'Daily',
+    'SELECT churn_risk, COUNT(*) AS customer_count FROM `gold.dim_customers` GROUP BY churn_risk',
+    'gold.dim_customers, ai.customer_concierge'
+  ),
+  STRUCT(
+    'Delta Pipeline',
+    'Event-driven incremental ingestion triggered on every new file landing in the GCS staging bucket. Processes MERGE operations per entity and logs idempotency status to batch_audit_log.',
+    'Operations',
+    'CTO',
+    'Real-time',
+    'SELECT entity, status, rows_merged, load_timestamp FROM `governance.batch_audit_log` ORDER BY load_timestamp DESC LIMIT 10',
+    'governance.batch_audit_log, bronze.ext_customers_delta, bronze.ext_orders_delta'
+  ),
+  STRUCT(
+    'Gemini Insight',
+    'AI-generated text produced by Gemini 2.5 Flash via BigQuery ML ML.GENERATE_TEXT. Used for customer retention strategies (customer_concierge) and product cross-sell recommendations (product_upsell).',
+    'AI / Analytics',
+    'CTO',
+    'Daily',
+    'SELECT customer_id, gemini_insight FROM `ai.customer_concierge` WHERE churn_risk = "At Risk" LIMIT 5',
+    'ai.customer_concierge, ai.product_upsell, ai.ai_enriched_profiles'
+  )
+])

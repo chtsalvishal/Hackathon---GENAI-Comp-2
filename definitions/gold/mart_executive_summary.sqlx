@@ -1,0 +1,85 @@
+config {
+  type: "view",
+  schema: "gold",
+  description: "Executive summary view — single wide table optimised for BigQuery Data Agent (Gemini natural language queries). Combines customer profile, order history, churn risk, revenue metrics, and Gemini AI insights into one queryable surface. Use this table to answer questions like: 'Which customers are at risk of churning?', 'What is our revenue by country this month?', 'Who are our top Platinum customers?', 'Show me customers with AI retention strategies'.",
+  tags: ["gold", "daily_refresh", "analyst", "data_agent"]
+}
+
+SELECT
+  -- Customer identity (analyst-safe)
+  c.customer_id,
+  c.customer_segment,
+  c.churn_risk,
+  c.city,
+  c.country,
+  c.created_date                                            AS customer_since,
+
+  -- Order metrics
+  c.order_count,
+  c.last_purchase_date,
+  c.first_purchase_date,
+  c.days_since_last_purchase,
+  CASE
+    WHEN c.total_lifetime_value >= 10000 THEN '10000+'
+    WHEN c.total_lifetime_value >= 5000  THEN '5000-9999'
+    WHEN c.total_lifetime_value >= 1000  THEN '1000-4999'
+    ELSE '0-999'
+  END                                                       AS lifetime_value_band,
+
+  -- Aggregated revenue (no raw PII financial fields exposed)
+  c.avg_order_value,
+
+  -- Top category purchased
+  top_cat.top_category,
+  top_cat.top_category_spend,
+
+  -- Revenue this calendar month
+  COALESCE(mtd.orders_this_month, 0)                        AS orders_this_month,
+  COALESCE(mtd.revenue_this_month, 0)                       AS revenue_this_month,
+
+  -- Revenue last calendar month
+  COALESCE(lm.orders_last_month, 0)                         AS orders_last_month,
+  COALESCE(lm.revenue_last_month, 0)                        AS revenue_last_month,
+
+  -- Gemini AI insight
+  ai.gemini_insight,
+  ai.generation_status                                      AS ai_status,
+
+  c.updated_at
+
+FROM ${ref("dim_customers_analyst")} c
+
+LEFT JOIN (
+  SELECT
+    o.customer_id,
+    p.category                                              AS top_category,
+    SUM(oi.subtotal)                                        AS top_category_spend
+  FROM ${ref("fct_orders")} o
+  JOIN ${ref("stg_order_items")} oi USING (order_id)
+  JOIN ${ref("dim_products")} p    USING (product_id)
+  GROUP BY 1, 2
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY o.customer_id ORDER BY SUM(oi.subtotal) DESC) = 1
+) top_cat USING (customer_id)
+
+LEFT JOIN (
+  SELECT customer_id,
+    COUNT(DISTINCT order_id)  AS orders_this_month,
+    SUM(total_amount)         AS revenue_this_month
+  FROM ${ref("fct_orders")}
+  WHERE DATE_TRUNC(order_date, MONTH) = DATE_TRUNC(CURRENT_DATE(), MONTH)
+  GROUP BY 1
+) mtd USING (customer_id)
+
+LEFT JOIN (
+  SELECT customer_id,
+    COUNT(DISTINCT order_id)  AS orders_last_month,
+    SUM(total_amount)         AS revenue_last_month
+  FROM ${ref("fct_orders")}
+  WHERE DATE_TRUNC(order_date, MONTH) = DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH), MONTH)
+  GROUP BY 1
+) lm USING (customer_id)
+
+LEFT JOIN (
+  SELECT customer_id, gemini_persona_and_strategy AS gemini_insight, generation_status
+  FROM ${ref("customer_concierge")}
+) ai USING (customer_id)

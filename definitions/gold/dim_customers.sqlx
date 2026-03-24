@@ -6,6 +6,36 @@ config {
   bigquery: {
     clusterBy: ["customer_segment", "country"]
   },
+  columns: {
+    first_name: {
+      description: "Customer first name — PII",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/1267542084878572337"]
+    },
+    last_name: {
+      description: "Customer last name — PII",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/1267542084878572337"]
+    },
+    customer_name: {
+      description: "Customer full name (first + last) — PII",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/1267542084878572337"]
+    },
+    email: {
+      description: "Customer email address — PII",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/2796219643491496181"]
+    },
+    phone: {
+      description: "Customer phone number — PII",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/8501836418753835921"]
+    },
+    total_lifetime_value: {
+      description: "Sum of all order amounts for this customer — Sensitive Financial",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/2815039736360581891"]
+    },
+    avg_order_value: {
+      description: "Average order value for this customer — Sensitive Financial",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/2815039736360581891"]
+    }
+  },
   assertions: {
     uniqueKey: ["customer_id"],
     nonNull: ["customer_id"]

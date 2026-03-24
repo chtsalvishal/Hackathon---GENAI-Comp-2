@@ -1,0 +1,45 @@
+config {
+  type: "view",
+  schema: "gold",
+  description: "Analyst-safe view of dim_customers. PII columns are masked — email hashed, phone truncated, name initialised. Safe for data-analyst role without fine-grained PII access.",
+  tags: ["gold", "daily_refresh", "analyst"]
+}
+
+SELECT
+  customer_id,
+
+  -- PII masked: name reduced to initial only
+  UPPER(LEFT(first_name, 1)) || '.'                        AS first_name,
+  UPPER(LEFT(last_name, 1))  || '.'                        AS last_name,
+  UPPER(LEFT(first_name, 1)) || '. ' ||
+    UPPER(LEFT(last_name, 1)) || '.'                       AS customer_name,
+
+  -- PII masked: email SHA-256 hashed
+  TO_HEX(SHA256(email))                                    AS email_hash,
+
+  -- PII masked: phone last 4 digits only
+  CONCAT('XXXX-XXX-', RIGHT(REGEXP_REPLACE(phone, r'[^0-9]', ''), 4)) AS phone_masked,
+
+  -- Non-PII geography
+  city,
+  country,
+  created_date,
+
+  -- Behavioural metrics (no raw financials — use ranges)
+  order_count,
+  CASE
+    WHEN total_lifetime_value >= 10000 THEN '10000+'
+    WHEN total_lifetime_value >= 5000  THEN '5000-9999'
+    WHEN total_lifetime_value >= 1000  THEN '1000-4999'
+    WHEN total_lifetime_value >= 0     THEN '0-999'
+    ELSE 'Unknown'
+  END                                                      AS lifetime_value_band,
+
+  last_purchase_date,
+  first_purchase_date,
+  days_since_last_purchase,
+  customer_segment,
+  churn_risk,
+  updated_at
+
+FROM ${ref("dim_customers")}

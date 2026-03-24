@@ -6,6 +6,20 @@ config {
   bigquery: {
     clusterBy: ["category", "brand"]
   },
+  columns: {
+    unit_price: {
+      description: "Retail unit price — Sensitive Financial",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/2315574801300032169"]
+    },
+    cost_price: {
+      description: "Internal cost price — Internal Use Only",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/5246353957800789763"]
+    },
+    margin_pct: {
+      description: "Gross margin percentage derived from unit_price and cost_price — Internal Use Only",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/5246353957800789763"]
+    }
+  },
   assertions: {
     uniqueKey: ["product_id"],
     nonNull: ["product_id", "product_name"]

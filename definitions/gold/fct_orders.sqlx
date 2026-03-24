@@ -9,8 +9,12 @@ config {
   },
   columns: {
     total_amount: {
-      description: "Total order value in base currency",
-      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/4390288473413043579"]
+      description: "Total order value in base currency — Sensitive Financial",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/5295245209189638222"]
+    },
+    avg_item_price: {
+      description: "Average unit price across all items in this order — Sensitive Financial",
+      bigqueryPolicyTags: ["projects/vishal-sandpit-474523/locations/australia-southeast1/taxonomies/7638949646360194197/policyTags/2315574801300032169"]
     }
   },
   assertions: {
