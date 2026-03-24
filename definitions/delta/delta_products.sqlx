@@ -23,7 +23,7 @@ IF NOT batch_already_processed THEN
     (batch_id, source_file, entity, status, started_at)
   VALUES (
     CONCAT('delta_products_', FORMAT_DATE('%Y%m%d', CURRENT_DATE())),
-    'gs://intelia-hackathon-files/batch_0*_products_delta.csv',
+    'gs://vishal-sandpit-474523-delta-staging/*_products_delta.csv',
     'products', 'RUNNING', CURRENT_TIMESTAMP()
   );
 

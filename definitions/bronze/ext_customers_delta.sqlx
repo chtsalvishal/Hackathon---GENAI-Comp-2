@@ -1,7 +1,7 @@
 config {
   type: "operations",
   schema: "bronze",
-  description: "Loads customer delta batches from GCS into a managed BigQuery table with full schema autodetection. New columns added to the CSV are automatically captured on the next run.",
+  description: "Loads customer delta batches from GCS (vishal-sandpit-474523-delta-staging) into a managed BigQuery table with full schema autodetection. New columns added to the CSV are automatically captured on the next run.",
   tags: ["bronze", "delta"],
   hasOutput: true
 }
@@ -10,7 +10,7 @@ config {
 LOAD DATA OVERWRITE `${database()}.bronze.ext_customers_delta`
 FROM FILES (
   format            = 'CSV',
-  uris              = ['gs://intelia-hackathon-files/batch_0*_customers_delta.csv'],
+  uris              = ['gs://vishal-sandpit-474523-delta-staging/*_customers_delta.csv'],
   skip_leading_rows = 1,
   autodetect        = true
 );
