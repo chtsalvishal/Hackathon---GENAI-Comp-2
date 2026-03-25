@@ -1,201 +1,408 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Intelia Looker Studio Dashboards
-# BQ views are Dataform-managed and rebuild nightly (daily_refresh tag).
-# Open the create_url in your browser while signed in as vishal@intelia.com.au
-# to auto-connect the BigQuery data source and start adding charts.
+# Intelia Looker Studio Dashboards — Build Specification
+#
+# Data verified against live BQ as of 2026-03-25:
+#   CCO source: gold.rpt_cco_dashboard   335 K rows (24-month order grain)
+#   CPO source: gold.rpt_cpo_dashboard   742 K rows (24-month item grain)
+#   CTO source: governance.rpt_cto_dashboard  (pipeline audit log grain)
+#
+# HOW TO CREATE:
+#   1. Open the create_url for a dashboard in your browser (signed in as vishal@intelia.com.au)
+#   2. Looker Studio opens a blank canvas connected to the correct BQ table
+#   3. Follow the pages/charts spec below to add charts — use the metric/dimension
+#      names exactly as listed (they match the BQ view column names)
+#   4. For calculated fields, paste the formula as-is into the Looker Studio
+#      "Add calculated field" dialog
+#
+# KEY DATA FACTS (inform chart ranges and thresholds):
+#   Revenue 24M total: $269M  |  Peak month: Dec 2024 $52.7M
+#   Orders: 335K  |  AOV: ~$804  |  Customers: 74K unique
+#   New vs Returning: ~1% new, 99% returning per month (mature customer base)
+#   Countries: US 44.8%, GB 14.4%, CA 10.1%, AU 7.8%, DE 7.6%
+#   Segments: Platinum (Active) dominates revenue — $197M of $269M
+#   Churn: Active 64.9K, At Risk 9.8K, Cooling 13.7K, Churned 11.5K
 # ─────────────────────────────────────────────────────────────────────────────
 
 project_id: vishal-sandpit-474523
-region: australia-southeast1
+region:     australia-southeast1
 
 dashboards:
 
-  # ───────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   # 1. CCO — Chief Customer Officer
-  # ───────────────────────────────────────────────────────────────────
+  #    Source: gold.rpt_cco_dashboard
+  #    One row per order (335K rows, 24-month window)
+  #    Dimensions: order_date, year_month, country, customer_type,
+  #                customer_segment, churn_risk, lifetime_value_band
+  #    Metrics:    order_revenue (SUM), order_id (COUNT = orders),
+  #                customer_id (COUNT DISTINCT = unique customers),
+  #                avg_item_price (AVG)
+  # ───────────────────────────────────────────────────────────────────────────
   - id: cco
     name: "Intelia CCO Dashboard — Customer Health & Revenue"
     persona: Chief Customer Officer
-    primary_table: gold.rpt_cco_dashboard
-    secondary_tables:
-      - gold.mart_executive_summary
-      - ai.customer_concierge
+    primary_source: gold.rpt_cco_dashboard
     create_url: "https://lookerstudio.google.com/c/reporting/create?c.mode=CREATE&ds.connector=BIG_QUERY&ds.type=TABLE&ds.projectId=vishal-sandpit-474523&ds.datasetId=gold&ds.tableId=rpt_cco_dashboard&r.reportName=Intelia+CCO+Dashboard"
 
+    calculated_fields:
+      - name: "Repeat Rate"
+        formula: "COUNTIF(customer_type = 'Returning') / COUNT(order_id)"
+        format: PERCENT
+      - name: "Revenue per Customer"
+        formula: "SUM(order_revenue) / COUNT_DISTINCT(customer_id)"
+        format: CURRENCY_AUD
+
+    date_range_control:
+      dimension: order_date
+      default: LAST_12_MONTHS
+
     pages:
-      - name: Revenue Overview
+
+      - name: "Revenue Overview"
+        description: "Top-level revenue health — mirrors screenshot 1.png"
+
         charts:
           - type: scorecard
-            metric: gross_revenue
-            label: "Total Revenue (24 months)"
+            metric: SUM(order_revenue)
+            label: "Total Revenue"
+            format: CURRENCY_AUD
+            comparison: PREVIOUS_PERIOD
+            note: "~$269M over 24 months; ~$52.7M peak Dec 2024"
+
           - type: scorecard
-            metric: unique_customers
+            metric: COUNT_DISTINCT(customer_id)
             label: "Unique Customers"
+            comparison: PREVIOUS_PERIOD
+            note: "~74K active in 24-month window"
+
           - type: scorecard
-            metric: avg_order_value
+            metric: COUNT(order_id)
+            label: "Total Orders"
+            comparison: PREVIOUS_PERIOD
+
+          - type: scorecard
+            metric: AVG(order_revenue)
             label: "Avg Order Value"
+            format: CURRENCY_AUD
+            comparison: PREVIOUS_PERIOD
+            note: "~$804 average"
+
           - type: scorecard
-            metric: repeat_rate
-            label: "Repeat Purchase Rate"
-            format: percent
+            metric: "COUNTIF(customer_type = 'New')"
+            label: "New Customers"
+            comparison: PREVIOUS_PERIOD
+            note: "~1% of monthly orders — mature retention base"
+
+          - type: scorecard
+            calculated_field: "Repeat Rate"
+            label: "Repeat Rate"
+            format: PERCENT
+            comparison: PREVIOUS_PERIOD
+            note: "~99% — very high loyalty"
+
           - type: time_series
-            dimension: summary_date
-            metric: gross_revenue
-            breakdown: country
-            label: "Monthly Revenue by Country"
+            dimension: order_date
+            granularity: MONTH
+            metrics:
+              - SUM(order_revenue)
+              - COUNT(order_id)
+              - COUNT_DISTINCT(customer_id)
+            style: AREA
+            label: "Revenue & Orders Over Time"
+            note: "Seasonal peak Oct–Dec; dip Jan–Mar. Matches screenshot performance-over-time chart."
+
           - type: bar_chart
             dimension: country
-            metric: gross_revenue
-            label: "Revenue by Country (24M)"
-            sort: desc
+            metric: SUM(order_revenue)
+            label: "Revenue by Country"
+            sort: DESC
+            note: "US 44.8% ($120.6M), GB 14.4% ($38.8M), CA 10.1%, AU 7.8%, DE 7.6%"
 
-      - name: Customer Segments
+      - name: "Customer Breakdown"
+        description: "New vs Returning, segments, churn risk — mirrors screenshot 2.png"
+
         charts:
-          - type: pie_chart
+          - type: bar_chart
+            orientation: HORIZONTAL_STACKED
             dimension: customer_segment
-            metric: segment_customer_count
-            label: "Customers by Segment"
+            breakdown: customer_type
+            metric: COUNT_DISTINCT(customer_id)
+            label: "New vs Returning by Segment"
+            colors:
+              New: "#4285F4"
+              Returning: "#34A853"
+            note: "Platinum Active dominates — 27K customers, $197M revenue. Shows loyalty per segment."
+
+          - type: scorecard
+            metric: "COUNTIF(customer_type = 'New')"
+            label: "New Customers"
+            comparison: PREVIOUS_PERIOD
+
+          - type: scorecard
+            metric: "COUNTIF(customer_type = 'Returning')"
+            label: "Returning Customers"
+            comparison: PREVIOUS_PERIOD
+
           - type: bar_chart
             dimension: churn_risk
-            metric: segment_customer_count
+            metric: COUNT_DISTINCT(customer_id)
             label: "Customers by Churn Risk"
-            color_coding: "High=red, Medium=amber, Low=green"
-          - type: pivot_table
-            row_dimension: customer_segment
-            col_dimension: churn_risk
-            metric: segment_customer_count
-            label: "Segment × Churn Risk Matrix"
-          - type: time_series
-            dimension: year_month
-            metric: new_customers
-            secondary_metric: repeat_customers
-            label: "New vs Repeat Customers"
+            sort: CUSTOM
+            sort_order: ["Active", "Cooling", "At Risk", "Churned"]
+            color_coding: "Active=green, Cooling=amber, At Risk=orange, Churned=red"
+            note: "Active 64.9K | Cooling 13.7K | At Risk 9.8K | Churned 11.5K"
 
-      - name: AI Retention Insights
-        data_source: gold.mart_executive_summary
+          - type: geo_map
+            dimension: country
+            metric: SUM(order_revenue)
+            label: "Revenue by Country (Map)"
+            geo_field: country
+            note: "Use ISO 2-letter country codes — already in that format (US, GB, CA, AU, DE, IN, FR, BR, MX)"
+
+          - type: table
+            dimensions: [country]
+            metrics: [SUM(order_revenue), COUNT_DISTINCT(customer_id), COUNT(order_id)]
+            sort: "SUM(order_revenue) DESC"
+            label: "Country Revenue Table"
+            note: "Pair with geo_map above. Add % of total as calculated field: SUM(order_revenue)/SUM(SUM(order_revenue))"
+
+          - type: pie_chart
+            dimension: lifetime_value_band
+            metric: COUNT_DISTINCT(customer_id)
+            label: "Customers by Lifetime Value Band"
+            note: "Bands: 0-999, 1000-4999, 5000-9999, 10000+. 1000-4999 band is largest (37K customers)."
+
+      - name: "AI Retention Insights"
+        description: "At-risk customers with Gemini retention strategies"
+        secondary_source: ai.mart_executive_summary_enriched
+        note: "Change data source to ai.mart_executive_summary_enriched for this page only"
+
         charts:
+          - type: filter_control
+            dimension: churn_risk
+            default: ["At Risk", "Cooling"]
+
           - type: table
             dimensions: [customer_id, customer_segment, churn_risk, country, lifetime_value_band]
-            metrics: [orders_this_month, revenue_this_month]
-            extra_columns: [gemini_insight, ai_status]
-            filter: "churn_risk IN ('High', 'Medium')"
+            metrics: [orders_this_month, revenue_this_month, orders_last_month, revenue_last_month]
+            extra_columns: [top_category, gemini_insight, ai_status]
+            filter: "churn_risk IN ('At Risk', 'Cooling')"
+            sort: "revenue_last_month DESC"
+            rows: 50
             label: "At-Risk Customers with Gemini Retention Strategies"
+            note: "Filter to ai_status = 'success' to show only rows with AI insights generated"
 
-  # ───────────────────────────────────────────────────────────────────
+
+  # ───────────────────────────────────────────────────────────────────────────
   # 2. CPO — Chief Product Officer
-  # ───────────────────────────────────────────────────────────────────
+  #    Source: gold.rpt_cpo_dashboard
+  #    One row per order item (742K rows, 24-month window)
+  #    Dimensions: order_date, year_month, category, sub_category, brand,
+  #                product_name, product_id, upsell_status
+  #    Metrics:    item_revenue (SUM), units_sold (SUM), unit_price (AVG),
+  #                margin_pct (AVG) — note: margin_pct is already % (e.g. 49.8)
+  # ───────────────────────────────────────────────────────────────────────────
   - id: cpo
     name: "Intelia CPO Dashboard — Product Performance & Upsell"
     persona: Chief Product Officer
-    primary_table: gold.rpt_cpo_dashboard
-    secondary_tables:
-      - ai.product_upsell
+    primary_source: gold.rpt_cpo_dashboard
     create_url: "https://lookerstudio.google.com/c/reporting/create?c.mode=CREATE&ds.connector=BIG_QUERY&ds.type=TABLE&ds.projectId=vishal-sandpit-474523&ds.datasetId=gold&ds.tableId=rpt_cpo_dashboard&r.reportName=Intelia+CPO+Dashboard"
 
+    calculated_fields:
+      - name: "Revenue Share %"
+        formula: "SUM(item_revenue) / SUM(SUM(item_revenue))"
+        format: PERCENT
+
+    date_range_control:
+      dimension: order_date
+      default: LAST_12_MONTHS
+
     pages:
-      - name: Category Performance
+
+      - name: "Category Performance"
+        description: "Revenue and margin by product category"
+
         charts:
           - type: scorecard
-            metric: revenue
+            metric: SUM(item_revenue)
             label: "Total Product Revenue"
+            format: CURRENCY_AUD
+            comparison: PREVIOUS_PERIOD
+            note: "~$249M over 24 months"
+
           - type: scorecard
-            metric: units_sold
+            metric: SUM(units_sold)
             label: "Units Sold"
+            comparison: PREVIOUS_PERIOD
+
           - type: scorecard
-            metric: avg_unit_price
+            metric: AVG(unit_price)
             label: "Avg Unit Price"
+            format: CURRENCY_AUD
+            comparison: PREVIOUS_PERIOD
+
           - type: scorecard
-            metric: margin_pct
+            metric: AVG(margin_pct)
             label: "Avg Margin %"
-            format: percent
+            format: NUMBER
+            note: "~49.9% margin across all categories. margin_pct stored as % value (49.8, not 0.498)"
+
           - type: bar_chart
             dimension: category
-            metric: revenue
+            metric: SUM(item_revenue)
             label: "Revenue by Category"
-            sort: desc
+            sort: DESC
+            note: "Electronics $153.1M (61%), Sports $28.1M (11%), Home&Garden $22.7M (9%), Clothing $20.1M (8%)"
+
           - type: time_series
-            dimension: year_month
-            metric: revenue
+            dimension: order_date
+            granularity: MONTH
+            metric: SUM(item_revenue)
             breakdown: category
+            style: AREA_STACKED
             label: "Category Revenue Trend"
+            note: "Electronics dominates every month. Seasonal peak Oct–Dec visible."
 
-      - name: Product Leaderboard
-        charts:
-          - type: table
-            dimensions: [product_name, category, brand]
-            metrics: [revenue, units_sold, unique_buyers, margin_pct]
-            sort: revenue desc
-            rows: 20
-            label: "Top 20 Products by Revenue"
           - type: bar_chart
-            dimension: brand
-            metric: revenue
-            label: "Revenue by Brand"
-            sort: desc
+            dimension: category
+            metric: AVG(margin_pct)
+            label: "Margin % by Category"
+            sort: DESC
+            note: "All categories ~49–51% margin. Toys highest at ~50.9%."
 
-      - name: AI Upsell Strategies
+      - name: "Product Leaderboard"
+        description: "Top products by revenue, brand performance"
+
         charts:
           - type: table
             dimensions: [product_name, category, sub_category, brand]
-            metrics: [revenue, units_sold]
-            extra_columns: [gemini_upsell_strategy, upsell_status]
-            filter: "upsell_status = 'SUCCEEDED'"
-            label: "Products with Gemini Upsell Strategies"
-            rows: 50
+            metrics: [SUM(item_revenue), SUM(units_sold), COUNT_DISTINCT(customer_id), AVG(margin_pct)]
+            sort: "SUM(item_revenue) DESC"
+            rows: 20
+            label: "Top 20 Products by Revenue"
 
-  # ───────────────────────────────────────────────────────────────────
+          - type: bar_chart
+            dimension: brand
+            metric: SUM(item_revenue)
+            label: "Revenue by Brand (Top 10)"
+            sort: DESC
+            rows: 10
+            note: "PulseGear $12.6M, EchoSphere $10.5M, VoltEdge $10M, ClearVision $9.3M, InfinityPro $9.1M"
+
+          - type: bar_chart
+            dimension: sub_category
+            metric: SUM(units_sold)
+            label: "Units Sold by Sub-Category"
+            sort: DESC
+            rows: 15
+
+      - name: "AI Upsell Strategies"
+        description: "Products with Gemini-generated upsell recommendations"
+
+        charts:
+          - type: filter_control
+            dimension: upsell_status
+            default: "success"
+
+          - type: table
+            dimensions: [product_name, category, sub_category, brand]
+            metrics: [SUM(item_revenue), SUM(units_sold), AVG(margin_pct)]
+            extra_columns: [gemini_upsell_strategy, upsell_status]
+            filter: "upsell_status = 'success'"
+            sort: "SUM(item_revenue) DESC"
+            rows: 50
+            label: "Products with Gemini Upsell Strategies"
+
+
+  # ───────────────────────────────────────────────────────────────────────────
   # 3. CTO — Chief Technology Officer
-  # ───────────────────────────────────────────────────────────────────
+  #    Source: governance.rpt_cto_dashboard
+  #    One row per pipeline run attempt (batch_audit_log grain)
+  #    Dimensions: run_date, run_ts, entity, status, source_file
+  #    Metrics:    rows_merged, rows_inserted, rows_updated, duration_secs
+  #    Note: batch_audit_log is populated by delta pipeline MERGE runs.
+  #          Data will appear once the delta pipeline runs against live files.
+  # ───────────────────────────────────────────────────────────────────────────
   - id: cto
     name: "Intelia CTO Dashboard — Pipeline Health & Data Quality"
     persona: Chief Technology Officer
-    primary_table: governance.rpt_cto_dashboard
-    secondary_tables:
-      - governance.business_glossary
+    primary_source: governance.rpt_cto_dashboard
     create_url: "https://lookerstudio.google.com/c/reporting/create?c.mode=CREATE&ds.connector=BIG_QUERY&ds.type=TABLE&ds.projectId=vishal-sandpit-474523&ds.datasetId=governance&ds.tableId=rpt_cto_dashboard&r.reportName=Intelia+CTO+Dashboard"
 
+    calculated_fields:
+      - name: "Success Rate"
+        formula: "COUNTIF(status = 'SUCCESS') / COUNT(batch_id)"
+        format: PERCENT
+
+    date_range_control:
+      dimension: run_date
+      default: LAST_30_DAYS
+
     pages:
-      - name: Pipeline Overview
+
+      - name: "Pipeline Overview"
+        description: "Run health, success rate, throughput"
+
         charts:
           - type: scorecard
             metric: COUNT(batch_id)
             label: "Total Pipeline Runs"
+            comparison: PREVIOUS_PERIOD
+
           - type: scorecard
-            metric: "COUNTIF(status='SUCCESS')"
-            label: "Successful Runs"
-            color: green
+            calculated_field: "Success Rate"
+            label: "Success Rate"
+            format: PERCENT
+            comparison: PREVIOUS_PERIOD
+
           - type: scorecard
-            metric: "COUNTIF(status='FAILED')"
+            metric: "COUNTIF(status = 'FAILED')"
             label: "Failed Runs"
+            comparison: PREVIOUS_PERIOD
             color: red
+
           - type: scorecard
             metric: SUM(rows_merged)
             label: "Total Rows Merged"
+            comparison: PREVIOUS_PERIOD
+
           - type: pie_chart
             dimension: status
             metric: COUNT(batch_id)
             label: "Run Status Distribution"
+            color_coding: "SUCCESS=green, FAILED=red, RUNNING=amber"
+
           - type: time_series
             dimension: run_date
+            granularity: DAY
             metric: COUNT(batch_id)
             breakdown: status
-            label: "Pipeline Runs by Date and Status"
+            style: BAR_STACKED
+            label: "Pipeline Runs by Day and Status"
 
-      - name: Throughput & Latency
+      - name: "Throughput & Latency"
+        description: "Row volume and duration per entity"
+
         charts:
           - type: bar_chart
             dimension: entity
             metric: SUM(rows_merged)
             label: "Rows Merged by Entity"
-            sort: desc
+            sort: DESC
+            note: "Entities: customers, orders, order_items, products"
+
           - type: time_series
             dimension: run_date
+            granularity: DAY
             metric: AVG(duration_secs)
             label: "Avg Pipeline Duration (seconds)"
+            note: "Alert threshold: >120s indicates performance issue"
+
           - type: table
             dimensions: [run_ts, entity, status, source_file]
             metrics: [rows_merged, rows_inserted, rows_updated, duration_secs]
             extra_columns: [error_message]
-            sort: run_ts desc
+            sort: "run_ts DESC"
             rows: 50
-            label: "Recent Pipeline Runs (detailed)"
+            label: "Recent Pipeline Runs — Full Detail"
+            filter: "run_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
