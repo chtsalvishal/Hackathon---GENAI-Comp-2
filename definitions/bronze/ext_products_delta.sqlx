@@ -11,6 +11,5 @@ LOAD DATA OVERWRITE `${database()}.bronze.ext_products_delta`
 FROM FILES (
   format            = 'CSV',
   uris              = ['gs://vishal-sandpit-474523-delta-staging/*_products_delta.csv'],
-  skip_leading_rows = 1,
-  autodetect        = true
+  skip_leading_rows = 1
 );
