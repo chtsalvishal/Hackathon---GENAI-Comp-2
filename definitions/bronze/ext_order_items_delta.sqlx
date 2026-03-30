@@ -8,6 +8,19 @@ config {
 
 -- Stage 1: Create an temporary external table to auto-detect schema
 CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_order_items_delta_ext`
+(
+  order_item_id            STRING,
+  order_id                 STRING,
+  product_id               STRING,
+  quantity                 STRING,
+  unit_price_at_purchase   STRING,
+  discount_applied         STRING,
+  line_total               STRING,
+  is_returned              STRING,
+  _delta_type              STRING,
+  _batch_id                STRING,
+  _batch_date              STRING
+)
 OPTIONS (
   format = 'CSV',
   uris = ['gs://intelia-hackathon-files/batch_01_order_items_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_order_items_delta.csv'],
