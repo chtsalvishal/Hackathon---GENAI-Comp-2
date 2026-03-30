@@ -94,21 +94,19 @@ IF NOT batch_already_processed THEN
   -- ── New-column propagation ────────────────────────────────────────────────────
   IF ARRAY_LENGTH(new_cols) > 0 THEN
     EXECUTE IMMEDIATE (
-      CONCAT(
-        'MERGE `vishal-sandpit-474523.gold.fct_orders` T ',
-        'USING (',
-        '  SELECT order_id, ',
-        (SELECT STRING_AGG(CONCAT('CAST(`', c, '` AS STRING) AS `', c, '`'), ', ')
-         FROM UNNEST(new_cols) c),
-        '  FROM `vishal-sandpit-474523.bronze.ext_orders_delta`',
-        '  WHERE _delta_type IN (''INSERT'', ''UPDATE'', ''UPSERT'') ',
-        '  QUALIFY ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY _batch_date DESC) = 1 ',
-        ') S ON T.order_id = S.order_id ',
-        ' WHEN MATCHED THEN UPDATE SET ',
-        (SELECT STRING_AGG(
-           CONCAT('T.`', c, '` = COALESCE(S.`', c, '`, T.`', c, '`)'), ', ')
-         FROM UNNEST(new_cols) c)
-      )
+      ' MERGE `vishal-sandpit-474523.gold.fct_orders` T ' ||
+      ' USING ( ' ||
+      '   SELECT order_id, ' ||
+      (SELECT STRING_AGG(' CAST(`' || c || '` AS STRING) AS `' || c || '` ', ', ')
+       FROM UNNEST(new_cols) c) ||
+      '   FROM `vishal-sandpit-474523.bronze.ext_orders_delta` ' ||
+      '   WHERE _delta_type IN (''INSERT'', ''UPDATE'', ''UPSERT'') ' ||
+      '   QUALIFY ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY _batch_date DESC) = 1 ' ||
+      ' ) S ON T.order_id = S.order_id ' ||
+      ' WHEN MATCHED THEN UPDATE SET ' ||
+      (SELECT STRING_AGG(
+         ' T.`' || c || '` = COALESCE(S.`', c, '`, T.`', c, '`) '), ', ')
+       FROM UNNEST(new_cols) c)
     );
   END IF;
   -- ─────────────────────────────────────────────────────────────────────────────

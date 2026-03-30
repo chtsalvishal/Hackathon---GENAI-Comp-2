@@ -6,12 +6,18 @@ config {
   hasOutput: true
 }
 
--- Drop existing external table if it exists to allow native table overwrite
-DROP TABLE IF EXISTS `${database()}.bronze.ext_customers_delta`;
-
-LOAD DATA OVERWRITE `${database()}.bronze.ext_customers_delta`
-FROM FILES (
-  format            = 'CSV',
-  uris              = ['gs://intelia-hackathon-files/batch_01_customers_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_customers_delta.csv'],
-  skip_leading_rows = 1
+-- Stage 1: Create an temporary external table to auto-detect schema (handles 24 vs 11 columns dynamically)
+CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_customers_delta_ext`
+OPTIONS (
+  format = 'CSV',
+  uris = ['gs://intelia-hackathon-files/batch_01_customers_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_customers_delta.csv'],
+  skip_leading_rows = 1,
+  autodetect = true
 );
+
+-- Stage 2: Materialize as a native table for high-performance dynamic MERGE
+CREATE OR REPLACE TABLE `${database()}.bronze.ext_customers_delta`
+AS SELECT * FROM `${database()}.bronze.ext_customers_delta_ext`;
+
+-- Cleanup
+DROP EXTERNAL TABLE IF EXISTS `${database()}.bronze.ext_customers_delta_ext`;
