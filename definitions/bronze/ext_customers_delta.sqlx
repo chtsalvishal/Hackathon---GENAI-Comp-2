@@ -6,7 +6,7 @@ config {
   hasOutput: true
 }
 
--- Stage 1: Create an temporary external table to auto-detect schema (handles 24 vs 11 columns dynamically)
+-- Stage 1: External table for raw CSV load (Minimal schema to match simple 11-column CSVs)
 CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_customers_delta_ext`
 (
   customer_id       STRING,
@@ -19,12 +19,7 @@ CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_customers_delta_ext`
   state             STRING,
   country           STRING,
   zip_code          STRING,
-  registration_date STRING,
-  customer_tier     STRING,
-  account_status    STRING,
-  _delta_type       STRING,
-  _batch_id         STRING,
-  _batch_date       STRING
+  registration_date STRING
 )
 OPTIONS (
   format = 'CSV',
@@ -33,9 +28,14 @@ OPTIONS (
   ignore_unknown_values = true
 );
 
--- Stage 2: Materialize as a native table for high-performance dynamic MERGE
-CREATE OR REPLACE TABLE `${database()}.bronze.ext_customers_delta`
-AS SELECT * FROM `${database()}.bronze.ext_customers_delta_ext`;
+-- Stage 2: Materialize and inject missing delta metadata
+CREATE OR REPLACE TABLE `${database()}.bronze.ext_customers_delta` AS
+SELECT 
+  *, 
+  'UPSERT' AS _delta_type,
+  CAST(CURRENT_DATE() AS STRING) AS _batch_date,
+  CAST(GENERATE_UUID() AS STRING) AS _batch_id
+FROM `${database()}.bronze.ext_customers_delta_ext`;
 
 -- Cleanup
 DROP EXTERNAL TABLE IF EXISTS `${database()}.bronze.ext_customers_delta_ext`;

@@ -6,7 +6,7 @@ config {
   hasOutput: true
 }
 
--- Stage 1: Create an temporary external table to auto-detect schema
+-- Stage 1: External table for raw CSV load
 CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_products_delta_ext`
 (
   product_id               STRING,
@@ -17,10 +17,7 @@ CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_products_delta_ext`
   unit_price               STRING,
   unit_cost                STRING,
   stock_quantity           STRING,
-  created_date             STRING,
-  _delta_type              STRING,
-  _batch_id                STRING,
-  _batch_date              STRING
+  created_date             STRING
 )
 OPTIONS (
   format = 'CSV',
@@ -29,9 +26,14 @@ OPTIONS (
   ignore_unknown_values = true
 );
 
--- Stage 2: Materialize as a native table
-CREATE OR REPLACE TABLE `${database()}.bronze.ext_products_delta`
-AS SELECT * FROM `${database()}.bronze.ext_products_delta_ext`;
+-- Stage 2: Materialize and inject missing delta metadata
+CREATE OR REPLACE TABLE `${database()}.bronze.ext_products_delta` AS
+SELECT 
+  *, 
+  'UPSERT' AS _delta_type,
+  CAST(CURRENT_DATE() AS STRING) AS _batch_date,
+  CAST(GENERATE_UUID() AS STRING) AS _batch_id
+FROM `${database()}.bronze.ext_products_delta_ext`;
 
 -- Cleanup
 DROP EXTERNAL TABLE IF EXISTS `${database()}.bronze.ext_products_delta_ext`;
