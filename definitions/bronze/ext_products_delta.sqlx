@@ -11,7 +11,8 @@ CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_products_delta_ext`
 OPTIONS (
   format = 'CSV',
   uris = ['gs://intelia-hackathon-files/batch_01_products_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_products_delta.csv'],
-  skip_leading_rows = 1
+  skip_leading_rows = 1,
+  ignore_unknown_values = true
 );
 
 -- Stage 2: Materialize as a native table

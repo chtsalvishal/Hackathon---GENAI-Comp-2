@@ -97,7 +97,7 @@ IF NOT batch_already_processed THEN
 
   IF ARRAY_LENGTH(new_cols) > 0 THEN
     EXECUTE IMMEDIATE """
-      MERGE `vishal-sandpit-474523.gold.fct_orders_items_metadata` T
+      MERGE `vishal-sandpit-474523.silver.stg_order_items` T
       USING (
         SELECT order_item_id, 
                """ || (SELECT STRING_AGG(' CAST(`' || c || '` AS STRING) AS `' || c || '` ', ', ') FROM UNNEST(new_cols) c) || """
