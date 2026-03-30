@@ -118,10 +118,10 @@ IF NOT batch_already_processed THEN
         (SELECT STRING_AGG(CONCAT('CAST(`', c, '` AS STRING) AS `', c, '`'), ', ')
          FROM UNNEST(new_cols) c),
         '  FROM `vishal-sandpit-474523.bronze.ext_customers_delta`',
-        '  WHERE _delta_type IN (''INSERT'', ''UPDATE'', ''UPSERT'')',
-        '  QUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY _batch_date DESC) = 1',
+        '  WHERE _delta_type IN (''INSERT'', ''UPDATE'', ''UPSERT'') ',
+        '  QUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY _batch_date DESC) = 1 ',
         ') S ON T.customer_id = S.customer_id ',
-        'WHEN MATCHED THEN UPDATE SET ',
+        ' WHEN MATCHED THEN UPDATE SET ',
         (SELECT STRING_AGG(
            CONCAT('T.`', c, '` = COALESCE(S.`', c, '`, T.`', c, '`)'), ', ')
          FROM UNNEST(new_cols) c)

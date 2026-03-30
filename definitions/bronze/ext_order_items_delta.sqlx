@@ -12,6 +12,6 @@ DROP TABLE IF EXISTS `${database()}.bronze.ext_order_items_delta`;
 LOAD DATA OVERWRITE `${database()}.bronze.ext_order_items_delta`
 FROM FILES (
   format            = 'CSV',
-  uris              = ['gs://vishal-sandpit-474523-delta-staging/*_order_items_delta.csv'],
+  uris              = ['gs://intelia-hackathon-files/batch_01_order_items_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_order_items_delta.csv'],
   skip_leading_rows = 1
 );
