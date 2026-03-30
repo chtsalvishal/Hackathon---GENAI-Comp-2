@@ -9,22 +9,33 @@ config {
 -- Stage 1: External table for raw CSV load (Minimal schema to match simple 11-column CSVs)
 CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_customers_delta_ext`
 (
-  customer_id       STRING,
-  first_name        STRING,
-  last_name         STRING,
-  email             STRING,
-  phone             STRING,
-  address           STRING,
-  city              STRING,
-  state             STRING,
-  country           STRING,
-  zip_code          STRING,
-  registration_date STRING
+  customer_id          STRING,
+  first_name           STRING,
+  last_name            STRING,
+  email                STRING,
+  phone                STRING,
+  date_of_birth        STRING,
+  gender               STRING,
+  registration_date    STRING,
+  country              STRING,
+  city                 STRING,
+  acquisition_channel  STRING,
+  customer_tier        STRING,
+  is_email_subscribed  STRING,
+  is_sms_subscribed    STRING,
+  preferred_device     STRING,
+  preferred_category   STRING,
+  loyalty_points       STRING,
+  account_status       STRING,
+  last_login_date      STRING,
+  referral_source_id   STRING,
+  marketing_segment    STRING
 )
 OPTIONS (
-  format = 'CSV',
-  uris = ['gs://intelia-hackathon-files/batch_01_customers_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_customers_delta.csv'],
-  skip_leading_rows = 1,
+  format              = 'CSV',
+  uris                = ['gs://intelia-hackathon-files/batch_01_customers_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_customers_delta.csv'],
+  skip_leading_rows   = 1,
+  allow_jagged_rows   = true,
   ignore_unknown_values = true
 );
 

@@ -9,20 +9,31 @@ config {
 -- Stage 1: External table for raw CSV load
 CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_products_delta_ext`
 (
-  product_id               STRING,
-  product_name             STRING,
-  category                 STRING,
-  subcategory              STRING,
-  brand                    STRING,
-  unit_price               STRING,
-  unit_cost                STRING,
-  stock_quantity           STRING,
-  created_date             STRING
+  product_id         STRING,
+  sku                STRING,
+  product_name       STRING,
+  category           STRING,
+  subcategory        STRING,
+  brand              STRING,
+  unit_cost          STRING,
+  unit_price         STRING,
+  discount_eligible  STRING,
+  stock_quantity     STRING,
+  weight_kg          STRING,
+  supplier_id        STRING,
+  is_active          STRING,
+  created_date       STRING,
+  last_updated_date  STRING,
+  average_rating     STRING,
+  review_count       STRING,
+  return_rate        STRING,
+  tags               STRING
 )
 OPTIONS (
-  format = 'CSV',
-  uris = ['gs://intelia-hackathon-files/batch_01_products_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_products_delta.csv'],
-  skip_leading_rows = 1,
+  format              = 'CSV',
+  uris                = ['gs://intelia-hackathon-files/batch_01_products_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_products_delta.csv'],
+  skip_leading_rows   = 1,
+  allow_jagged_rows   = true,
   ignore_unknown_values = true
 );
 

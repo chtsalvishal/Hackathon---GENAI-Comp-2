@@ -16,12 +16,15 @@ CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_order_items_delta_ext
   unit_price_at_purchase   STRING,
   discount_applied         STRING,
   line_total               STRING,
-  is_returned              STRING
+  is_returned              STRING,
+  return_reason            STRING,
+  return_date              STRING
 )
 OPTIONS (
-  format = 'CSV',
-  uris = ['gs://intelia-hackathon-files/batch_01_order_items_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_order_items_delta.csv'],
-  skip_leading_rows = 1,
+  format              = 'CSV',
+  uris                = ['gs://intelia-hackathon-files/batch_01_order_items_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_order_items_delta.csv'],
+  skip_leading_rows   = 1,
+  allow_jagged_rows   = true,
   ignore_unknown_values = true
 );
 
