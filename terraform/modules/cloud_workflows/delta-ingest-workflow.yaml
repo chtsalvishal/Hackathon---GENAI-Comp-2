@@ -15,22 +15,24 @@ main:
           text: "delta-ingest triggered"
           severity: INFO
 
-    - list_compilations:
-        call: http.get
+    - create_compilation:
+        call: http.post
         args:
-          url: ${dataform_base + "/compilationResults?pageSize=5"}
+          url: ${dataform_base + "/compilationResults"}
           auth:
             type: OAuth2
-        result: list_resp
+          body:
+            gitCommitish: "main"
+        result: compile_resp
 
-    - check_list:
+    - check_compile:
         switch:
-          - condition: ${list_resp.code != 200}
-            raise: ${"List compilations failed HTTP " + string(list_resp.code)}
+          - condition: ${compile_resp.code != 200}
+            raise: ${"Compilation failed HTTP " + string(compile_resp.code)}
 
     - extract_compilation_name:
         assign:
-          - compilation_name: ${list_resp.body.compilationResults[0].name}
+          - compilation_name: ${compile_resp.body.name}
 
     - log_compilation:
         call: sys.log
