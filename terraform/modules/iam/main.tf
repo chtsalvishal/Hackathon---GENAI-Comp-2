@@ -110,6 +110,19 @@ resource "google_project_iam_member" "ai_developer_bq_job_user" {
   member  = "serviceAccount:${google_service_account.ai_developer.email}"
 }
 
+resource "google_project_iam_member" "ai_developer_cloudaicompanion" {
+  project = var.project_id
+  role    = "roles/cloudaicompanion.user"
+  member  = "serviceAccount:${google_service_account.ai_developer.email}"
+}
+
+# Grant all authenticated users Gemini for BigQuery access (enables Data Agent in console)
+resource "google_project_iam_member" "all_users_cloudaicompanion" {
+  project = var.project_id
+  role    = "roles/cloudaicompanion.user"
+  member  = "domain:intelia.com.au"
+}
+
 # ---------------------------------------------------------------------------
 # Data Engineer IAM bindings
 # ---------------------------------------------------------------------------
@@ -170,6 +183,19 @@ resource "google_project_iam_member" "dataform_sa_bq_job_user" {
   member  = "serviceAccount:${google_service_account.dataform.email}"
 }
 
+# Grant Dataform the authority to attach Data Catalog Policy Tags (Column-level security)
+resource "google_project_iam_member" "dataform_sa_data_owner" {
+  project = var.project_id
+  role    = "roles/bigquery.dataOwner"
+  member  = "serviceAccount:${google_service_account.dataform.email}"
+}
+
+resource "google_project_iam_member" "dataform_sa_catalog_tag_editor" {
+  project = var.project_id
+  role    = "roles/datacatalog.tagEditor"
+  member  = "serviceAccount:${google_service_account.dataform.email}"
+}
+
 # ---------------------------------------------------------------------------
 # Cloud Workflows SA IAM bindings
 # ---------------------------------------------------------------------------
@@ -189,6 +215,19 @@ resource "google_project_iam_member" "workflows_sa_bq_job_user" {
 resource "google_project_iam_member" "workflows_sa_log_writer" {
   project = var.project_id
   role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.workflows.email}"
+}
+
+# Grant Workflows SA the ability to explicitly 'Act As' the Dataform SA
+resource "google_project_iam_member" "workflows_sa_act_as" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
+  member  = "serviceAccount:${google_service_account.workflows.email}"
+}
+
+resource "google_project_iam_member" "workflows_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
   member  = "serviceAccount:${google_service_account.workflows.email}"
 }
 

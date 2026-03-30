@@ -25,3 +25,15 @@ variable "github_app_installation_id" {
   type        = number
   default     = 0
 }
+
+variable "alert_email" {
+  description = "Email address to receive pipeline failure, budget, and data freshness alerts."
+  type        = string
+  default     = "vishal.pattabiraman@intelia.com.au"
+}
+
+variable "monthly_budget_aud" {
+  description = "Monthly GCP spend budget in AUD. Alerts fire at 80% and 100%."
+  type        = number
+  default     = 200
+}

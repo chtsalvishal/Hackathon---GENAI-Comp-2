@@ -15,24 +15,22 @@ main:
           text: "delta-ingest triggered"
           severity: INFO
 
-    - create_compilation:
-        call: http.post
+    - list_compilations:
+        call: http.get
         args:
-          url: ${dataform_base + "/compilationResults"}
+          url: ${dataform_base + "/compilationResults?pageSize=5"}
           auth:
             type: OAuth2
-          body:
-            gitCommitish: "main"
-        result: compile_resp
+        result: list_resp
 
-    - check_compile:
+    - check_list:
         switch:
-          - condition: ${compile_resp.code != 200}
-            raise: ${"Compilation failed HTTP " + string(compile_resp.code)}
+          - condition: ${list_resp.code != 200}
+            raise: ${"List compilations failed HTTP " + string(list_resp.code)}
 
     - extract_compilation_name:
         assign:
-          - compilation_name: ${compile_resp.body.name}
+          - compilation_name: ${list_resp.body.compilationResults[0].name}
 
     - log_compilation:
         call: sys.log
@@ -51,6 +49,7 @@ main:
             invocationConfig:
               includedTags:
                 - ${tag}
+              serviceAccount: ${"dataform-sa@" + project_id + ".iam.gserviceaccount.com"}
               transitiveDependenciesIncluded: true
               transitiveDependentsIncluded: false
         result: invoke_resp

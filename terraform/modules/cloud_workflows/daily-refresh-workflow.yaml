@@ -48,6 +48,7 @@ main:
           body:
             compilationResult: ${compilation_name}
             invocationConfig:
+              serviceAccount: ${"dataform-sa@" + project_id + ".iam.gserviceaccount.com"}
               fullyRefreshIncrementalTablesEnabled: true
               transitiveDependenciesIncluded: true
               transitiveDependentsIncluded: true

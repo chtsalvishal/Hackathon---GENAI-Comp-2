@@ -64,7 +64,6 @@ resource "google_dataform_repository_release_config" "production" {
     default_database = var.project_id
     default_schema   = "gold"
     default_location = var.region
-    assertion_schema = "dataform_assertions"
   }
 }
 

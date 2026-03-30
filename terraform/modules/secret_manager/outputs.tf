@@ -1,6 +1,6 @@
 output "github_token_secret_name" {
   description = "Full resource name of the latest version of the github-token secret. Pass this to the Dataform module."
-  value       = google_secret_manager_secret_version.github_token_placeholder.name
+  value       = "${google_secret_manager_secret.github_token.name}/versions/latest"
 }
 
 output "github_token_secret_id" {

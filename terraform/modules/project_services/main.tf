@@ -20,6 +20,9 @@ locals {
     "logging.googleapis.com",
     "iam.googleapis.com",
     "cloudresourcemanager.googleapis.com",
+    "cloudaicompanion.googleapis.com",      # Gemini for BigQuery / Data Agent
+    "discoveryengine.googleapis.com",       # Vertex AI Agent Builder
+    "billingbudgets.googleapis.com",        # Budget alerts
   ])
 }
 

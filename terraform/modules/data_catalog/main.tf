@@ -90,6 +90,12 @@ resource "google_data_catalog_policy_tag" "internal_cost" {
 }
 
 # ---------------------------------------------------------------------------
+# Business Glossary — implemented as governance.business_glossary in Dataform
+# (Data Catalog tag templates deprecated; Dataplex Catalog is the successor)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+
 # BigQuery Audit Logging
 # ---------------------------------------------------------------------------
 

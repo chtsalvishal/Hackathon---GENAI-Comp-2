@@ -180,7 +180,20 @@ module "dataplex" {
 }
 
 # ---------------------------------------------------------------------------
-# 14. Cloud Build — CI/CD triggers wired to the GitHub repository.
+# 14. Monitoring — budget alerts, workflow failure alerts, data freshness SLA.
+# ---------------------------------------------------------------------------
+module "monitoring" {
+  source             = "./modules/monitoring"
+  project_id         = var.project_id
+  billing_account_id = var.billing_account_id
+  alert_email        = var.alert_email
+  monthly_budget_aud = var.monthly_budget_aud
+
+  depends_on = [module.project_services]
+}
+
+# ---------------------------------------------------------------------------
+# 15. Cloud Build — CI/CD triggers wired to the GitHub repository.
 # ---------------------------------------------------------------------------
 module "cloud_build" {
   source                     = "./modules/cloud_build"
