@@ -11,8 +11,7 @@ CREATE OR REPLACE EXTERNAL TABLE `${database()}.bronze.ext_customers_delta_ext`
 OPTIONS (
   format = 'CSV',
   uris = ['gs://intelia-hackathon-files/batch_01_customers_delta.csv', 'gs://vishal-sandpit-474523-delta-staging/*_customers_delta.csv'],
-  skip_leading_rows = 1,
-  autodetect = true
+  skip_leading_rows = 1
 );
 
 -- Stage 2: Materialize as a native table for high-performance dynamic MERGE
