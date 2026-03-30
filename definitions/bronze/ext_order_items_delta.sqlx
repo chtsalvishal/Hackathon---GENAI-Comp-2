@@ -6,7 +6,9 @@ config {
   hasOutput: true
 }
 
--- Recreates the table on every run so autodetect captures any new columns in the CSV.
+-- Drop existing external table if it exists to allow native table overwrite
+DROP TABLE IF EXISTS `${database()}.bronze.ext_order_items_delta`;
+
 LOAD DATA OVERWRITE `${database()}.bronze.ext_order_items_delta`
 FROM FILES (
   format            = 'CSV',
