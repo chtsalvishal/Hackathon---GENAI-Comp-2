@@ -1,12 +1,9 @@
 config {
-  type: "table",
+  type: "view",
   schema: "ai",
-  description: "Customer Concierge — Gemini-generated persona and retention strategy per customer. Materialized as a table to cache LLM results and ensure sub-second Looker Studio performance. Masked PII-safe inputs.",
+  description: "Customer Concierge — Gemini-generated persona and retention strategy per customer using ML.GENERATE_TEXT. References dim_customers_analyst (PII-masked) so raw names, emails, and financial figures are never passed to the AI model.",
   tags: ["ai", "daily_refresh"],
-  dependOnDependencyAssertions: true,
-  bigquery: {
-    clusterBy: ["churn_risk", "country"]
-  }
+  dependOnDependencyAssertions: true
 }
 
 -- Uses dim_customers_analyst (masked view) not dim_customers (raw PII).
