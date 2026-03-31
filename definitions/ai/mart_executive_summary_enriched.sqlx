@@ -1,8 +1,11 @@
 config {
-  type: "view",
+  type: "table",
   schema: "ai",
-  description: "AI-enriched executive summary — extends gold.mart_executive_summary with Gemini retention insights from ai.customer_concierge. Lives in the ai schema to keep the gold layer free of AI dependencies. Use for: at-risk customer outreach, CCO AI Retention Insights page, BigQuery Data Agent AI queries.",
-  tags: ["ai", "daily_refresh", "analyst", "data_agent"]
+  description: "AI-enriched executive summary — materialized as a table for high-performance Looker Studio reporting. Joins gold metrics with Gemini insights with clustering for fast filtering.",
+  tags: ["ai", "daily_refresh", "analyst", "data_agent"],
+  bigquery: {
+    clusterBy: ["churn_risk", "country"]
+  }
 }
 
 SELECT
