@@ -1,57 +1,59 @@
 config {
-  type: "view",
+  type: "table",
   schema: "ai",
-  description: "Customer Concierge — dynamic view for real-time Gemini results. Recommendation: use a small filter to avoid timeouts.",
+  description: "Customer Concierge — optimized Gemini retention strategies. Materialized as a table for performance.",
   tags: ["ai", "daily_refresh"],
   dependencies: ["gemini_pro_model"]
 }
 
--- Uses dim_customers_analyst (masked view) not dim_customers (raw PII).
--- Prompt uses masked name (initials) and lifetime_value_band (range) instead of raw financials.
-WITH ai_results AS (
+WITH base AS (
+  SELECT *
+  FROM ${ref("dim_customers_analyst")}
+  WHERE order_count > 0
+),
+
+ai_results AS (
   SELECT
     customer_id,
     ml_generate_text_llm_result AS gemini_persona_and_strategy,
     ml_generate_text_status     AS generation_status
   FROM ML.GENERATE_TEXT(
-    MODEL `vishal-sandpit-474523.ai.gemini_pro_model`,
+    MODEL `${database()}.ai.gemini_pro_model`,
     (
       SELECT
         customer_id,
         CONCAT(
-          'You are a customer success expert. Analyse this customer profile and provide:\n',
-          '1. A 2-sentence persona describing their behaviour and value to the business.\n',
-          '2. One specific, actionable retention strategy tailored to their situation.\n\n',
-          'Segment: ',             customer_segment, '\n',
-          'Lifetime Value Band: ', lifetime_value_band, '\n',
-          'Total Orders: ',        CAST(order_count AS STRING), '\n',
-          'Days Since Last Purchase: ', CAST(days_since_last_purchase AS STRING), '\n',
-          'Churn Risk: ',          churn_risk, '\n',
-          'Country: ',             country
+          'Customer success expert.\n',
+          'Output:\n- 2-sentence persona\n- 1 retention action\n\n',
+          'Segment: ', customer_segment,
+          ', LTV: ', lifetime_value_band,
+          ', Orders: ', order_count,
+          ', Days Since Purchase: ', days_since_last_purchase,
+          ', Risk: ', churn_risk,
+          ', Country: ', country
         ) AS prompt
-      FROM ${ref("dim_customers_analyst")}
-      WHERE order_count > 0
+      FROM base
     ),
     STRUCT(
-      0.2   AS temperature,
-      256   AS max_output_tokens,
-      TRUE  AS flatten_json_output
+      0.2  AS temperature,
+      128  AS max_output_tokens,
+      TRUE AS flatten_json_output
     )
   )
 )
 
 SELECT
-  c.customer_id,
-  c.customer_name,
-  c.customer_segment,
-  c.churn_risk,
-  c.lifetime_value_band,
-  c.order_count,
-  c.last_purchase_date,
-  c.days_since_last_purchase,
-  c.country,
+  b.customer_id,
+  b.customer_name,
+  b.customer_segment,
+  b.churn_risk,
+  b.lifetime_value_band,
+  b.order_count,
+  b.last_purchase_date,
+  b.days_since_last_purchase,
+  b.country,
   r.gemini_persona_and_strategy,
   r.generation_status,
   CURRENT_TIMESTAMP() AS generated_at
-FROM ${ref("dim_customers_analyst")} c
+FROM base b
 JOIN ai_results r USING (customer_id)
