@@ -1,7 +1,7 @@
 config {
-  type: "table",
+  type: "view",
   schema: "ai",
-  description: "Customer Concierge — optimized Gemini retention strategies. Materialized as a table for performance.",
+  description: "Customer Concierge — dynamic view for real-time Gemini results.",
   tags: ["ai", "daily_refresh"],
   dependencies: ["gemini_pro_model"]
 }
