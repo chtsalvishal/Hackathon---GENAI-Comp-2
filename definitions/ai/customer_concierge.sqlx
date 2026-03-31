@@ -1,12 +1,9 @@
 config {
-  type: "table",
+  type: "view",
   schema: "ai",
-  description: "Customer Concierge — materialized table to cache Gemini results and ensure high-performance Looker Studio reporting.",
+  description: "Customer Concierge — dynamic view for real-time Gemini results. Recommendation: use a small filter to avoid timeouts.",
   tags: ["ai", "daily_refresh"],
-  dependencies: ["gemini_pro_model"],
-  bigquery: {
-    clusterBy: ["churn_risk", "country"]
-  }
+  dependencies: ["gemini_pro_model"]
 }
 
 -- Uses dim_customers_analyst (masked view) not dim_customers (raw PII).

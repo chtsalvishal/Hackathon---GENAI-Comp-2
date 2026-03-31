@@ -1,7 +1,7 @@
 config {
-  type: "table",
+  type: "view",
   schema: "ai",
-  description: "Fully enriched customer profiles — materialized table combining raw metrics with Gemini insights.",
+  description: "Fully enriched customer profiles — dynamic data + Gemini insights combined",
   tags: ["ai"]
 }
 

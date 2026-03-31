@@ -1,11 +1,8 @@
 config {
-  type: "table",
+  type: "view",
   schema: "ai",
-  description: "AI-enriched executive summary — materialized as a table for high-performance Looker Studio reporting.",
-  tags: ["ai", "daily_refresh", "analyst", "data_agent"],
-  bigquery: {
-    clusterBy: ["churn_risk", "country"]
-  }
+  description: "AI-enriched executive summary — dynamic view combining gold metrics with Gemini insights.",
+  tags: ["ai", "daily_refresh", "analyst", "data_agent"]
 }
 
 SELECT

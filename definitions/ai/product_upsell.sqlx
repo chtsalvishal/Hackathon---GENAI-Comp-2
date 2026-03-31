@@ -1,12 +1,9 @@
 config {
-  type: "table",
+  type: "view",
   schema: "ai",
-  description: "Product upsell strategies — materialized table to avoid redundant LLM calls.",
+  description: "Product upsell strategies — dynamic view for Gemini insights.",
   tags: ["ai", "daily_refresh"],
-  dependencies: ["gemini_pro_model"],
-  bigquery: {
-    clusterBy: ["category", "brand"]
-  }
+  dependencies: ["gemini_pro_model"]
 }
 
 -- Use last 90 days of available data (not CURRENT_DATE) so historical datasets are supported
