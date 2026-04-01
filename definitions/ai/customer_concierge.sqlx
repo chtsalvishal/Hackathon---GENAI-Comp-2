@@ -1,6 +1,22 @@
 config {
-  type: "declaration",
-  database: "vishal-sandpit-474523",
+  type: "table",
   schema: "ai",
-  name: "customer_concierge"
+  name: "customer_concierge",
+  tags: ["ai", "daily_refresh"]
 }
+
+WITH unioned AS (
+  SELECT * FROM ${ref("customer_ai_1")}
+  UNION ALL
+  SELECT * FROM ${ref("customer_ai_2")}
+  UNION ALL
+  SELECT * FROM ${ref("customer_ai_3")}
+  UNION ALL
+  SELECT * FROM ${ref("customer_ai_4")}
+)
+
+SELECT
+  *,
+  CONCAT("Persona: ", persona, "\nStrategy: ", strategy) AS gemini_persona_and_strategy,
+  status                                          AS generation_status
+FROM unioned

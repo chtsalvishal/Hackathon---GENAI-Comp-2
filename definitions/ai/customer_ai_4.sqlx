@@ -1,0 +1,54 @@
+config {
+  type: "table",
+  schema: "ai",
+  tags: ["ai", "daily_refresh"],
+  dependencies: ["dim_customers_analyst", "gemini_pro_model"]
+}
+
+WITH base AS (
+  SELECT
+    customer_id,
+    customer_segment,
+    churn_risk
+  FROM ${ref("dim_customers_analyst")}
+  WHERE order_count > 0
+  AND MOD(ABS(FARM_FINGERPRINT(customer_id)), 4) = 3
+),
+
+ai AS (
+  SELECT
+    customer_id,
+    ml_generate_text_llm_result AS raw_output,
+    ml_generate_text_status AS status
+  FROM ML.GENERATE_TEXT(
+    MODEL `${database()}.ai.gemini_pro_model`,
+    (
+      SELECT
+        customer_id,
+        CONCAT(
+          'Return ONLY valid JSON array.\n',
+          'Do not include markdown or explanation.\n',
+          'If invalid, return [].\n\n',
+          'Format:\n',
+          '[{"customer_id":"","persona":"","strategy":""}]\n\n',
+          'Segment: ', customer_segment,
+          ', Risk: ', churn_risk
+        ) AS prompt
+      FROM base
+    ),
+    STRUCT(
+      0.1 AS temperature,
+      256 AS max_output_tokens,
+      TRUE AS flatten_json_output
+    )
+  )
+)
+
+SELECT
+  customer_id,
+  JSON_VALUE(raw_output, '$[0].persona') AS persona,
+  JSON_VALUE(raw_output, '$[0].strategy') AS strategy,
+  status,
+  CURRENT_TIMESTAMP() AS generated_at
+FROM ai
+WHERE raw_output IS NOT NULL

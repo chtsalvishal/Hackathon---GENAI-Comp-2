@@ -1,6 +1,22 @@
 config {
-  type: "declaration",
-  database: "vishal-sandpit-474523",
+  type: "table",
   schema: "ai",
-  name: "product_upsell"
+  name: "product_upsell",
+  tags: ["ai", "daily_refresh"]
 }
+
+WITH unioned AS (
+  SELECT * FROM ${ref("product_ai_1")}
+  UNION ALL
+  SELECT * FROM ${ref("product_ai_2")}
+  UNION ALL
+  SELECT * FROM ${ref("product_ai_3")}
+  UNION ALL
+  SELECT * FROM ${ref("product_ai_4")}
+)
+
+SELECT
+  *,
+  CONCAT("Cross-sell: ", cross_sell, "\nUpsell: ", upsell) AS gemini_upsell_strategy,
+  status                                          AS generation_status
+FROM unioned

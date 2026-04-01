@@ -1,0 +1,54 @@
+config {
+  type: "table",
+  schema: "ai",
+  tags: ["ai", "daily_refresh"],
+  dependencies: ["dim_products", "gemini_pro_model"]
+}
+
+WITH base AS (
+  SELECT
+    product_id,
+    product_name,
+    category
+  FROM ${ref("dim_products")}
+  WHERE product_id IS NOT NULL
+  AND MOD(ABS(FARM_FINGERPRINT(product_id)), 4) = 3
+),
+
+ai AS (
+  SELECT
+    product_id,
+    ml_generate_text_llm_result AS raw_output,
+    ml_generate_text_status AS status
+  FROM ML.GENERATE_TEXT(
+    MODEL `${database()}.ai.gemini_pro_model`,
+    (
+      SELECT
+        product_id,
+        CONCAT(
+          'Return ONLY valid JSON array.\n',
+          'Do not include markdown or explanation.\n',
+          'If invalid, return [].\n\n',
+          'Format:\n',
+          '[{"product_id":"","cross_sell":"","upsell":""}]\n\n',
+          'Name: ', product_name,
+          ', Category: ', category
+        ) AS prompt
+      FROM base
+    ),
+    STRUCT(
+      0.1 AS temperature,
+      256 AS max_output_tokens,
+      TRUE AS flatten_json_output
+    )
+  )
+)
+
+SELECT
+  product_id,
+  JSON_VALUE(raw_output, '$[0].cross_sell') AS cross_sell,
+  JSON_VALUE(raw_output, '$[0].upsell') AS upsell,
+  status,
+  CURRENT_TIMESTAMP() AS generated_at
+FROM ai
+WHERE raw_output IS NOT NULL
