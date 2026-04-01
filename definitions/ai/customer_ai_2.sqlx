@@ -19,7 +19,7 @@ WITH base AS (
 ai_batch_0 AS (
   SELECT
     customer_id,
-    ml_generate_text_llm_result AS raw_output,
+    ml_generate_text_result AS raw_output,
     ml_generate_text_status AS status
   FROM ML.GENERATE_TEXT(
     MODEL `${database()}.ai.gemini_pro_model`,
@@ -49,7 +49,7 @@ ai_batch_0 AS (
 ai_batch_1 AS (
   SELECT
     customer_id,
-    ml_generate_text_llm_result AS raw_output,
+    ml_generate_text_result AS raw_output,
     ml_generate_text_status AS status
   FROM ML.GENERATE_TEXT(
     MODEL `${database()}.ai.gemini_pro_model`,
