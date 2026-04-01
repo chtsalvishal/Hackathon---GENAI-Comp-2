@@ -3,10 +3,11 @@ config {
   schema: "ai",
   name: "run_ai_batch_inference",
   tags: ["ai", "daily_refresh"],
-  dependencies: ["dim_customers_analyst", "gemini_pro_model"] -- 👈 Added model dependency
+  dependencies: ["dim_customers_analyst", "gemini_pro_model"]
 }
 
 -- Python Stored Procedure: Zero-Server Batching
+-- Logic: Aggregate 10 rows per prompt to achieve "Phase 2" performance without Cloud Run.
 CREATE OR REPLACE PROCEDURE `${database()}.ai.sp_run_gemini_inference`()
 LANGUAGE PYTHON
 OPTIONS (
@@ -16,46 +17,45 @@ AS R"""
 import json
 from google.cloud import bigquery
 
-def main(client): -- 👈 Renamed to match call at bottom
-    # 1. Fetch data from Gold (Using Ref would be hard here, so we use string formatting)
+def main(client):
     project_id = "vishal-sandpit-474523"
-    query = f"SELECT customer_id, customer_segment, churn_risk, country FROM `{project_id}.gold.dim_customers_analyst` WHERE order_count > 0 LIMIT 1000"
-    job = client.query(query)
-    rows = list(job.result())
     
-    # 2. Batch into groups of 10 for speed
+    # 1. Fetch Customers (using Format instead of f-string to avoid Dataform brace conflict)
+    query = "SELECT customer_id, customer_segment, churn_risk, country FROM `%s.gold.dim_customers_analyst` WHERE order_count > 0 LIMIT 1000" % project_id
+    rows = list(client.query(query).result())
+    
+    # 2. Batch into groups of 10
     batches = [rows[i:i + 10] for i in range(0, len(rows), 10)]
     all_results = []
     
     for batch in batches:
-        # Build prompt for 10 rows
-        prompt_data = "\n".join([f"ID: {r.customer_id}, Segment: {r.customer_segment}, Risk: {r.churn_risk}" for r in batch])
-        full_prompt = f"Return ONLY valid JSON array. One persona per ID.\nCustomers:\n{prompt_data}"
+        # Build prompt using join and mapping to avoid braces
+        prompt_data = "\n".join(["ID: %s, Segment: %s, Risk: %s" % (r.customer_id, r.customer_segment, r.churn_risk) for r in batch])
+        full_prompt = "Return ONLY valid JSON array. One persona per ID.\nCustomers:\n" + prompt_data
         
-        # Call Gemini via ML.GENERATE_TEXT (Note: triple quotes inside f-string need care)
-        batch_query = f'''
+        # Call Gemini via ML.GENERATE_TEXT
+        batch_query = '''
         SELECT * FROM ML.GENERATE_TEXT(
-          MODEL `{project_id}.ai.gemini_pro_model`,
-          (SELECT """{full_prompt}""" AS prompt),
+          MODEL `%s.ai.gemini_pro_model`,
+          (SELECT """%s""" AS prompt),
           STRUCT(0.1 AS temperature, 1024 AS max_output_tokens, 'application/json' AS response_mime_type)
         )
-        '''
+        ''' % (project_id, full_prompt)
+        
         try:
             res = list(client.query(batch_query).result())[0]
-            # Parse the batch JSON
             clean_res = res.ml_generate_text_llm_result.replace("```json", "").replace("```", "").strip()
             all_results.extend(json.loads(clean_res))
         except Exception as e:
-            print(f"Error in batch: {e}")
+            print("Error in batch: " + str(e))
 
-    # 3. Write results to Physical Table
+    # 3. Write results back to the Table (Restored name to 'customer_concierge')
     if all_results:
-        table_id = f"{project_id}.ai.customer_concierge_results"
+        table_id = "%s.ai.customer_concierge" % project_id
         job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
         client.load_table_from_json(all_results, table_id, job_config=job_config).result()
 
 main(bigquery.Client())
 """;
 
--- Execute the procedure
 CALL `${database()}.ai.sp_run_gemini_inference`();
