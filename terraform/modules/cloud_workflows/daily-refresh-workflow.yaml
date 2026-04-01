@@ -100,14 +100,6 @@ main:
         args:
           text: ${"Daily refresh SUCCEEDED - " + invocation_name}
           severity: INFO
-        next: run_ai_processing
-
-    - run_ai_processing:
-        call: http.post
-        args:
-          url: ${"https://" + location + "-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/" + project_id + "/jobs/ai-engine-job:run"}
-          auth:
-            type: OAuth2
         next: done
 
     - failed:

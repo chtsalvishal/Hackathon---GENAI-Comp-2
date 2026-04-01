@@ -1,6 +1,0 @@
-google-cloud-bigquery
-google-cloud-aiplatform
-vertexai
-pandas
-db-dtypes
-asyncio

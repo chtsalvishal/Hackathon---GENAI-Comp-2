@@ -1,0 +1,61 @@
+config {
+  type: "operations",
+  schema: "ai",
+  name: "run_ai_batch_inference",
+  tags: ["ai", "daily_refresh"],
+  dependencies: ["dim_customers_analyst"]
+}
+
+-- Python Stored Procedure: Zero-Server Batching
+CREATE OR REPLACE PROCEDURE `${database()}.ai.sp_run_gemini_inference`()
+LANGUAGE PYTHON
+OPTIONS (
+  connection = 'australia-southeast1.gemini-pro-connection'
+)
+AS R"""
+import json
+
+def run_inference(client):
+    # 1. Fetch data from Gold
+    query = "SELECT customer_id, customer_segment, churn_risk, country FROM `vishal-sandpit-474523.gold.dim_customers_analyst` WHERE order_count > 0 LIMIT 1000"
+    job = client.query(query)
+    rows = list(job.result())
+    
+    # 2. Batch into groups of 10 for speed
+    batches = [rows[i:i + 10] for i in range(0, len(rows), 10)]
+    all_results = []
+    
+    print(f"Processing {len(batches)} batches...")
+    
+    for batch in batches:
+        # Build prompt for 10 rows
+        prompt_data = "\n".join([f"ID: {r.customer_id}, Segment: {r.customer_segment}, Risk: {r.churn_risk}" for r in batch])
+        full_prompt = f"Return ONLY valid JSON. Personas for these customers:\n{prompt_data}"
+        
+        # Call Gemini via ML.GENERATE_TEXT (Batched)
+        batch_query = f'''
+        SELECT * FROM ML.GENERATE_TEXT(
+          MODEL `vishal-sandpit-474523.ai.gemini_pro_model`,
+          (SELECT """{full_prompt}""" AS prompt),
+          STRUCT(0.1 AS temperature, 1024 AS max_output_tokens, 'application/json' AS response_mime_type)
+        )
+        '''
+        try:
+            res = list(client.query(batch_query).result())[0]
+            # Parse the batch JSON
+            results_json = json.loads(res.ml_generate_text_llm_result)
+            all_results.extend(results_json)
+        except Exception as e:
+            print(f"Error in batch: {e}")
+
+    # 3. Write results to Physical Table
+    if all_results:
+        table_id = "vishal-sandpit-474523.ai.customer_concierge_results"
+        # Load results back into BQ
+        client.load_table_from_json(all_results, table_id, job_config=bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")).result()
+
+main(bigquery.Client())
+""";
+
+-- Execute the procedure
+CALL `${database()}.ai.sp_run_gemini_inference`();

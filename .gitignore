@@ -16,6 +16,10 @@ __pycache__/
 *.pyc
 .env
 
-# OS
-.DS_Store
-Thumbs.db
+# IDEs and Tools
+.claude/
+.gemini/
+.vscode/
+*.local.json
+files.txt
+instructions.txt
