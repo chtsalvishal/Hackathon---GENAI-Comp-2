@@ -1,7 +1,7 @@
 -- ============================================================
 -- TEST: Optimized Customer AI Inference (Dummy Data)
 -- Run this in BigQuery console to validate BEFORE deploying
--- Replace PROJECT_ID with: vishal-sandpit-474523
+-- Replace vishal-sandpit-474523 with: vishal-sandpit-474523
 -- ============================================================
 -- What this validates:
 --   1. flatten_json_output=TRUE works with gemini_pro_model
@@ -38,7 +38,7 @@ ai_output AS (
     ml_generate_text_llm_result AS raw_text,
     ml_generate_text_status     AS status
   FROM ML.GENERATE_TEXT(
-    MODEL `PROJECT_ID.ai.gemini_pro_model`,
+    MODEL `vishal-sandpit-474523.ai.gemini_pro_model`,
     (SELECT customer_id, prompt FROM prompts),
     STRUCT(
       0.1  AS temperature,
