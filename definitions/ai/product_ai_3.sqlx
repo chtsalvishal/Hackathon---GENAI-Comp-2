@@ -85,15 +85,22 @@ combined AS (
 cleaned AS (
   SELECT
     *,
-    REGEXP_EXTRACT(TO_JSON_STRING(raw_output), r"(\[[\s\S]*\]|\{[\s\S]*\})") AS clean_output
+    JSON_VALUE(raw_output, '$.candidates[0].content.parts[0].text') AS raw_text
   FROM combined
+),
+
+parsed AS (
+  SELECT
+    *,
+    REGEXP_EXTRACT(raw_text, r"(\[[\s\S]*\]|\{[\s\S]*\})") AS json_payload
+  FROM cleaned
 )
 
 SELECT
   product_id,
-  COALESCE(JSON_VALUE(clean_output, '$[0].cross_sell'), JSON_VALUE(clean_output, '$.cross_sell')) AS cross_sell,
-  COALESCE(JSON_VALUE(clean_output, '$[0].upsell'), JSON_VALUE(clean_output, '$.upsell')) AS upsell,
+  COALESCE(JSON_VALUE(json_payload, '$[0].cross_sell'), JSON_VALUE(json_payload, '$.cross_sell')) AS cross_sell,
+  COALESCE(JSON_VALUE(json_payload, '$[0].upsell'), JSON_VALUE(json_payload, '$.upsell')) AS upsell,
   status,
   CURRENT_TIMESTAMP() AS generated_at
-FROM cleaned
+FROM parsed
 WHERE raw_output IS NOT NULL
