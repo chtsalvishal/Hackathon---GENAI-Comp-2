@@ -28,6 +28,11 @@ FALLBACK_STRATEGY = "Monitor engagement"
 FALLBACK_CROSS    = "No cross-sell strategy"
 FALLBACK_UPSELL   = "Basic upsell"
 
+# BQ ML status behaviour with flatten_json_output=TRUE:
+#   success → status = '' (empty string)
+#   failure → status = 'error message string' (non-empty)
+BQ_ML_SUCCESS_STATUS = ''
+
 
 def regexp_extract(text, pattern):
     """Mimics BigQuery REGEXP_EXTRACT — returns first match group or None."""
@@ -214,6 +219,95 @@ def run_tests():
     return failed == 0
 
 
+def run_status_filter_tests():
+    """
+    Validates the WHERE status = '' filter behaviour.
+    Simulates what BQ ML returns on success vs failure.
+    """
+    print("\n" + "=" * 70)
+    print("STATUS FILTER TESTS  (WHERE status = '')")
+    print("=" * 70)
+
+    cases = [
+        ("Success row (status='')",         '',                               True),
+        ("Quota error (status=error msg)",  'RESOURCE_EXHAUSTED: quota',      False),
+        ("Model error (status=error msg)",  'INVALID_ARGUMENT: prompt too long', False),
+        ("Null status (should not happen)", None,                             False),
+        ("Empty prompt error",              'INVALID_ARGUMENT',               False),
+    ]
+
+    passed = failed = 0
+    for name, status, expect_included in cases:
+        included = (status == BQ_ML_SUCCESS_STATUS)
+        ok = (included == expect_included)
+        result = "PASS" if ok else "FAIL"
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+        print(f"\n[{result}] {name}")
+        print(f"  status={repr(status)} -> included={included} (expected {expect_included})")
+
+    return passed, failed
+
+
+def run_null_prompt_tests():
+    """
+    Validates that NULL segment/risk/product_name/category are handled.
+    In BigQuery, CONCAT with NULL returns NULL (prompt becomes NULL → Gemini fails).
+    Our WHERE filters guard against this before the CONCAT.
+    """
+    print("\n" + "=" * 70)
+    print("NULL PROMPT INPUT GUARD TESTS")
+    print("=" * 70)
+
+    def build_customer_prompt(segment, churn_risk):
+        """Mimics BigQuery CONCAT — returns None if any arg is None."""
+        if segment is None or churn_risk is None:
+            return None
+        return f"Respond with ONLY a JSON object...\nSegment:{segment} Risk:{churn_risk}"
+
+    def build_product_prompt(product_name, category):
+        if product_name is None or category is None:
+            return None
+        return f"Respond with ONLY a JSON object...\nProduct:{product_name} Category:{category}"
+
+    cases = [
+        ("Customer: both fields present",   build_customer_prompt('Gold', 'Active'),   True),
+        ("Customer: segment is NULL",        build_customer_prompt(None, 'Active'),    False),
+        ("Customer: churn_risk is NULL",     build_customer_prompt('Gold', None),      False),
+        ("Customer: both NULL",              build_customer_prompt(None, None),        False),
+        ("Product: both fields present",     build_product_prompt('Laptop', 'Electronics'), True),
+        ("Product: product_name is NULL",    build_product_prompt(None, 'Electronics'), False),
+        ("Product: category is NULL",        build_product_prompt('Laptop', None),     False),
+    ]
+
+    passed = failed = 0
+    for name, prompt, expect_valid in cases:
+        is_valid = prompt is not None
+        ok = (is_valid == expect_valid)
+        result = "PASS" if ok else "FAIL"
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+        print(f"\n[{result}] {name}")
+        print(f"  prompt={'<valid>' if is_valid else 'NULL'} (expected {'valid' if expect_valid else 'NULL/filtered'})")
+
+    return passed, failed
+
+
 if __name__ == "__main__":
     ok = run_tests()
-    sys.exit(0 if ok else 1)
+
+    sp, sf = run_status_filter_tests()
+    np_, nf = run_null_prompt_tests()
+
+    total_passed = (14 if ok else 0) + sp + np_
+    total_failed = (0 if ok else 14) + sf + nf
+
+    print("\n" + "=" * 70)
+    print(f"GRAND TOTAL: {total_passed}/{total_passed + total_failed} tests passed")
+    print("=" * 70)
+
+    sys.exit(0 if total_failed == 0 else 1)

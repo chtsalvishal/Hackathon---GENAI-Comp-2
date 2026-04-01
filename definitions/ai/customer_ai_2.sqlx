@@ -8,7 +8,8 @@ config {
 
 -- Customer AI Shard 2/4 — processes customers where FARM_FINGERPRINT MOD 4 = 1
 -- Single ML.GENERATE_TEXT call (no inner sub-batching)
--- flatten_json_output=TRUE: returns text directly, no nested JSON navigation needed
+-- flatten_json_output=TRUE: BQ ML returns text in ml_generate_text_llm_result
+-- status = '' on success, error message string on failure (BQ ML behaviour)
 
 WITH base AS (
   SELECT
@@ -16,10 +17,12 @@ WITH base AS (
     CONCAT(
       'Respond with ONLY a JSON object. No markdown, no code blocks.\n',
       'Format: {"persona":"2-sentence customer profile","strategy":"one specific retention action"}\n',
-      'Segment:', customer_segment, ' Risk:', churn_risk
+      'Segment:', COALESCE(customer_segment, 'Unknown'), ' Risk:', COALESCE(churn_risk, 'Unknown')
     ) AS prompt
   FROM ${ref("dim_customers_analyst")}
   WHERE order_count > 0
+    AND customer_segment IS NOT NULL
+    AND churn_risk IS NOT NULL
     AND MOD(ABS(FARM_FINGERPRINT(customer_id)), 4) = 1
 ),
 
@@ -46,4 +49,4 @@ SELECT
   status,
   CURRENT_TIMESTAMP() AS generated_at
 FROM ai_output
-WHERE status IS NOT NULL
+WHERE status = ''  -- Empty string = success in BQ ML; non-empty string = error, exclude from output

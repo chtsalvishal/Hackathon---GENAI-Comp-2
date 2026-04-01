@@ -23,7 +23,10 @@ WITH unioned AS (
 )
 
 SELECT
-  *,
-  CONCAT("Cross-sell: ", COALESCE(cross_sell, "No Cross-sell Strategy"), "\nUpsell: ", COALESCE(upsell, "Basic Upsell")) AS gemini_upsell_strategy,
-  status                                          AS generation_status
+  product_id,
+  cross_sell,
+  upsell,
+  generated_at,
+  CONCAT('Cross-sell: ', COALESCE(cross_sell, 'No cross-sell strategy'), '\nUpsell: ', COALESCE(upsell, 'Basic upsell')) AS gemini_upsell_strategy,
+  status AS generation_status
 FROM unioned

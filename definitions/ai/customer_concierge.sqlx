@@ -23,7 +23,10 @@ WITH unioned AS (
 )
 
 SELECT
-  *,
-  CONCAT("Persona: ", COALESCE(persona, "Generic"), "\nStrategy: ", COALESCE(strategy, "Monitor Engagement")) AS gemini_persona_and_strategy,
-  status                                          AS generation_status
+  customer_id,
+  persona,
+  strategy,
+  generated_at,
+  CONCAT('Persona: ', COALESCE(persona, 'Valued customer'), '\nStrategy: ', COALESCE(strategy, 'Monitor engagement')) AS gemini_persona_and_strategy,
+  status AS generation_status
 FROM unioned

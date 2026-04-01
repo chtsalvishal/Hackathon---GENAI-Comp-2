@@ -8,7 +8,8 @@ config {
 
 -- Product AI Shard 4/4 — processes products where FARM_FINGERPRINT MOD 4 = 3
 -- Single ML.GENERATE_TEXT call (no inner sub-batching)
--- flatten_json_output=TRUE: returns text directly, no nested JSON navigation needed
+-- flatten_json_output=TRUE: BQ ML returns text in ml_generate_text_llm_result
+-- status = '' on success, error message string on failure (BQ ML behaviour)
 
 WITH base AS (
   SELECT
@@ -16,10 +17,12 @@ WITH base AS (
     CONCAT(
       'Respond with ONLY a JSON object. No markdown, no code blocks.\n',
       'Format: {"cross_sell":"complementary product suggestion","upsell":"premium version or accessory suggestion"}\n',
-      'Product:', product_name, ' Category:', category
+      'Product:', COALESCE(product_name, 'Unknown'), ' Category:', COALESCE(category, 'Unknown')
     ) AS prompt
   FROM ${ref("dim_products")}
   WHERE product_id IS NOT NULL
+    AND product_name IS NOT NULL
+    AND category IS NOT NULL
     AND MOD(ABS(FARM_FINGERPRINT(product_id)), 4) = 3
 ),
 
@@ -46,4 +49,4 @@ SELECT
   status,
   CURRENT_TIMESTAMP() AS generated_at
 FROM ai_output
-WHERE status IS NOT NULL
+WHERE status = ''  -- Empty string = success in BQ ML; non-empty string = error, exclude from output
