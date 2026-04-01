@@ -5,6 +5,13 @@ config {
   tags: ["ai", "daily_refresh"]
 }
 
+post_operations {
+  DROP TABLE IF EXISTS ${ref("customer_ai_1")};
+  DROP TABLE IF EXISTS ${ref("customer_ai_2")};
+  DROP TABLE IF EXISTS ${ref("customer_ai_3")};
+  DROP TABLE IF EXISTS ${ref("customer_ai_4")};
+}
+
 WITH unioned AS (
   SELECT * FROM ${ref("customer_ai_1")}
   UNION ALL

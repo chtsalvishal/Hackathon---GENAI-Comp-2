@@ -10,7 +10,7 @@ WITH base AS (
     product_id,
     product_name,
     category,
-    CAST(FLOOR(ABS(FARM_FINGERPRINT(product_id))/1000) AS INT64) AS batch_id
+    MOD(CAST(ABS(FARM_FINGERPRINT(product_id)) / 4 AS INT64), 2) AS batch_id
   FROM ${ref("dim_products")}
   WHERE product_id IS NOT NULL
     AND MOD(ABS(FARM_FINGERPRINT(product_id)), 4) = 0

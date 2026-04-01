@@ -10,7 +10,7 @@ WITH base AS (
     customer_id,
     customer_segment,
     churn_risk,
-    CAST(FLOOR(ABS(FARM_FINGERPRINT(customer_id))/1000) AS INT64) AS batch_id
+    MOD(CAST(ABS(FARM_FINGERPRINT(customer_id)) / 4 AS INT64), 2) AS batch_id
   FROM ${ref("dim_customers_analyst")}
   WHERE order_count > 0
     AND MOD(ABS(FARM_FINGERPRINT(customer_id)), 4) = 1
