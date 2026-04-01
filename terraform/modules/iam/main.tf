@@ -196,6 +196,33 @@ resource "google_project_iam_member" "dataform_sa_catalog_tag_editor" {
   member  = "serviceAccount:${google_service_account.dataform.email}"
 }
 
+# Grant Dataform the ability to READ the taxonomy schemas to apply the tags
+resource "google_project_iam_member" "dataform_sa_catalog_viewer" {
+  project = var.project_id
+  role    = "roles/datacatalog.viewer"
+  member  = "serviceAccount:${google_service_account.dataform.email}"
+}
+
+resource "google_project_iam_member" "dataform_sa_fine_grained_reader" {
+  project = var.project_id
+  role    = "roles/datacatalog.categoryFineGrainedReader"
+  member  = "serviceAccount:${google_service_account.dataform.email}"
+}
+
+# Grant Dataform access to use the Gemini Remote Connection for ML.GENERATE_TEXT
+resource "google_project_iam_member" "dataform_sa_bq_connection_user" {
+  project = var.project_id
+  role    = "roles/bigquery.connectionUser"
+  member  = "serviceAccount:${google_service_account.dataform.email}"
+}
+
+# Grant Dataform access to read the raw CSV files from the GCS delta staging bucket
+resource "google_project_iam_member" "dataform_sa_storage_viewer" {
+  project = var.project_id
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${google_service_account.dataform.email}"
+}
+
 # ---------------------------------------------------------------------------
 # Cloud Workflows SA IAM bindings
 # ---------------------------------------------------------------------------
@@ -228,6 +255,12 @@ resource "google_project_iam_member" "workflows_sa_act_as" {
 resource "google_project_iam_member" "workflows_sa_user" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.workflows.email}"
+}
+
+resource "google_project_iam_member" "workflows_sa_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
   member  = "serviceAccount:${google_service_account.workflows.email}"
 }
 
@@ -311,4 +344,7 @@ resource "google_project_iam_member" "cloudbuild_sa_bq_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.cloudbuild.email}"
+}
+output "ai_developer_email" {
+  value = google_service_account.ai_developer.email
 }

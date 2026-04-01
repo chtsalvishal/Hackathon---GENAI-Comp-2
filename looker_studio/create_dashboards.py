@@ -57,7 +57,8 @@ DASHBOARDS = [
 
 def get_token():
     result = subprocess.run(
-        ["gcloud", "auth", "print-access-token"],
+        "gcloud auth print-access-token",
+        shell=True,
         capture_output=True, text=True
     )
     return result.stdout.strip()

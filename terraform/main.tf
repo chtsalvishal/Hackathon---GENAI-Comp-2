@@ -205,3 +205,14 @@ module "cloud_build" {
 
   depends_on = [module.project_services, module.iam, module.secret_manager]
 }
+# ---------------------------------------------------------------------------
+# 16. AI Job — Cloud Run Job for Python-based AI inference.
+# ---------------------------------------------------------------------------
+module "ai_job" {
+  source                = "./modules/ai_job"
+  project_id            = var.project_id
+  region                = var.region
+  service_account_email = module.iam.ai_developer_email
+
+  depends_on = [module.project_services, module.bigquery, module.iam]
+}

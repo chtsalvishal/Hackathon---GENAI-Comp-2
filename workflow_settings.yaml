@@ -1,6 +1,5 @@
 defaultProject: vishal-sandpit-474523
 defaultDataset: gold
-defaultAssertionDataset: dataform_assertions
 defaultLocation: australia-southeast1
 vars:
   environment: production
