@@ -1,5 +1,5 @@
 config {
-  type: "view",
+  type: "table",
   schema: "gold",
   description: "CPO Dashboard — flat order-item-grain fact view with product category, sub-category, brand, margin, and AI upsell strategy. Looker Studio aggregates category revenue, product leaderboard, and brand performance from this single source.",
   tags: ["gold", "daily_refresh", "dashboard", "cpo"]
@@ -29,4 +29,4 @@ FROM ${ref("fct_orders")} o
 JOIN ${ref("stg_order_items")} oi   USING (order_id)
 JOIN ${ref("dim_products")} p       USING (product_id)
 LEFT JOIN ${ref("product_upsell")} u USING (product_id)
-WHERE o.order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)
+WHERE o.order_date >= DATE_SUB((SELECT MAX(order_date) FROM ${ref("fct_orders")}), INTERVAL 24 MONTH)

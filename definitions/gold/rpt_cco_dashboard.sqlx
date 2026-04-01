@@ -1,5 +1,5 @@
 config {
-  type: "view",
+  type: "table",
   schema: "gold",
   description: "CCO Dashboard — flat order-grain fact view with customer segment, churn status, country, and new/returning flag. Looker Studio aggregates scorecards, time-series, geo maps, and segment breakdowns from this single source.",
   tags: ["gold", "daily_refresh", "dashboard", "cco"]
@@ -23,4 +23,4 @@ SELECT
   COALESCE(c.lifetime_value_band, 'Unknown')                   AS lifetime_value_band
 FROM ${ref("fct_orders")} o
 LEFT JOIN ${ref("dim_customers_analyst")} c USING (customer_id)
-WHERE o.order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 24 MONTH)
+WHERE o.order_date >= DATE_SUB((SELECT MAX(order_date) FROM ${ref("fct_orders")}), INTERVAL 24 MONTH)

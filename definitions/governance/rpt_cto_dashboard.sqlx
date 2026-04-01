@@ -1,5 +1,5 @@
 config {
-  type: "view",
+  type: "table",
   schema: "governance",
   description: "CTO Dashboard — pipeline run history, row throughput, durations, error rates, and data freshness. Powers the Looker Studio CTO Dashboard.",
   tags: ["governance", "daily_refresh", "dashboard", "cto"]

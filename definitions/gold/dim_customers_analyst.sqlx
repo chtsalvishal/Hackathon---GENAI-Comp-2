@@ -1,5 +1,5 @@
 config {
-  type: "view",
+  type: "table",
   schema: "gold",
   description: "Analyst-safe view of dim_customers. PII columns are masked — email hashed, phone truncated, name initialised. Safe for data-analyst role without fine-grained PII access.",
   tags: ["gold", "daily_refresh", "analyst"]
