@@ -2,105 +2,48 @@ config {
   type: "table",
   schema: "ai",
   tags: ["ai", "daily_refresh"],
-  dependencies: ["dim_products", "gemini_pro_model", "product_ai_1"]
+  dependencies: ["dim_products", "gemini_pro_model"]
+  -- No dependency on product_ai_1 — runs in PARALLEL with shards 1, 3, 4
 }
+
+-- Product AI Shard 2/4 — processes products where FARM_FINGERPRINT MOD 4 = 1
+-- Single ML.GENERATE_TEXT call (no inner sub-batching)
+-- flatten_json_output=TRUE: returns text directly, no nested JSON navigation needed
 
 WITH base AS (
   SELECT
     product_id,
-    product_name,
-    category,
-    MOD(CAST(ABS(FARM_FINGERPRINT(product_id)) / 4 AS INT64), 2) AS batch_id
+    CONCAT(
+      'Respond with ONLY a JSON object. No markdown, no code blocks.\n',
+      'Format: {"cross_sell":"complementary product suggestion","upsell":"premium version or accessory suggestion"}\n',
+      'Product:', product_name, ' Category:', category
+    ) AS prompt
   FROM ${ref("dim_products")}
   WHERE product_id IS NOT NULL
     AND MOD(ABS(FARM_FINGERPRINT(product_id)), 4) = 1
 ),
 
-ai_batch_0 AS (
+ai_output AS (
   SELECT
     product_id,
-    ml_generate_text_result AS raw_output,
-    ml_generate_text_status AS status
+    ml_generate_text_llm_result AS raw_text,
+    ml_generate_text_status     AS status
   FROM ML.GENERATE_TEXT(
     MODEL `${database()}.ai.gemini_pro_model`,
-    (
-      SELECT
-        product_id,
-        CONCAT(
-          'Return ONLY valid JSON array.\n',
-          'Do not include markdown or explanation.\n',
-          'If invalid, return [].\n\n',
-          'Format:\n',
-          '[{"product_id":"","cross_sell":"","upsell":""}]\n\n',
-          'Name: ', product_name,
-          ', Category: ', category
-        ) AS prompt
-      FROM base
-      WHERE batch_id = 0
-    ),
+    (SELECT product_id, prompt FROM base),
     STRUCT(
-      0.1 AS temperature,
-      256 AS max_output_tokens,
-      FALSE AS flatten_json_output
+      0.1  AS temperature,
+      150  AS max_output_tokens,
+      TRUE AS flatten_json_output
     )
   )
-),
-
-ai_batch_1 AS (
-  SELECT
-    product_id,
-    ml_generate_text_result AS raw_output,
-    ml_generate_text_status AS status
-  FROM ML.GENERATE_TEXT(
-    MODEL `${database()}.ai.gemini_pro_model`,
-    (
-      SELECT
-        product_id,
-        CONCAT(
-          'Return ONLY valid JSON array.\n',
-          'Do not include markdown or explanation.\n',
-          'If invalid, return [].\n\n',
-          'Format:\n',
-          '[{"product_id":"","cross_sell":"","upsell":""}]\n\n',
-          'Name: ', product_name,
-          ', Category: ', category
-        ) AS prompt
-      FROM base
-      WHERE batch_id = 1
-    ),
-    STRUCT(
-      0.1 AS temperature,
-      256 AS max_output_tokens,
-      FALSE AS flatten_json_output
-    )
-  )
-),
-
-combined AS (
-  SELECT * FROM ai_batch_0
-  UNION ALL
-  SELECT * FROM ai_batch_1
-),
-
-cleaned AS (
-  SELECT
-    *,
-    JSON_VALUE(raw_output, '$.candidates[0].content.parts[0].text') AS raw_text
-  FROM combined
-),
-
-parsed AS (
-  SELECT
-    *,
-    REGEXP_EXTRACT(raw_text, r"(\[[\s\S]*\]|\{[\s\S]*\})") AS json_payload
-  FROM cleaned
 )
 
 SELECT
   product_id,
-  COALESCE(JSON_VALUE(json_payload, '$[0].cross_sell'), JSON_VALUE(json_payload, '$.cross_sell')) AS cross_sell,
-  COALESCE(JSON_VALUE(json_payload, '$[0].upsell'), JSON_VALUE(json_payload, '$.upsell')) AS upsell,
+  COALESCE(JSON_VALUE(REGEXP_EXTRACT(raw_text, r'\{[\s\S]*\}'), '$.cross_sell'), 'No cross-sell strategy') AS cross_sell,
+  COALESCE(JSON_VALUE(REGEXP_EXTRACT(raw_text, r'\{[\s\S]*\}'), '$.upsell'),     'Basic upsell')           AS upsell,
   status,
   CURRENT_TIMESTAMP() AS generated_at
-FROM parsed
-WHERE raw_output IS NOT NULL
+FROM ai_output
+WHERE status IS NOT NULL
