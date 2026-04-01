@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "ai",
   tags: ["ai", "daily_refresh"],
-  dependencies: ["dim_products", "gemini_pro_model"]
+  dependencies: ["dim_products", "gemini_pro_model", "product_ai_2"]
 }
 
 WITH base AS (
