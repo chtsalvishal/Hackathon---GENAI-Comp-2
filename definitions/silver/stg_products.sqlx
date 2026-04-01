@@ -31,9 +31,9 @@ config {
 SELECT
   TRIM(product_id)                       AS product_id,
   TRIM(product_name)                     AS product_name,
-  TRIM(category)                         AS category,
-  TRIM(subcategory)                      AS sub_category,
-  TRIM(brand)                            AS brand,
+  INITCAP(TRIM(LOWER(category)))         AS category,
+  INITCAP(TRIM(LOWER(subcategory)))      AS sub_category,
+  INITCAP(TRIM(LOWER(brand)))            AS brand,
   SAFE_CAST(unit_price  AS NUMERIC)      AS unit_price,
   SAFE_CAST(unit_cost   AS NUMERIC)      AS cost_price,
   SAFE_CAST(stock_quantity AS INT64)     AS stock_quantity,

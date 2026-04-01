@@ -46,8 +46,19 @@ SELECT
   TRIM(phone)                                    AS phone,
   TRIM(UPPER(city))                              AS city,
   TRIM(UPPER(country))                           AS country,
-  TRIM(customer_tier)                            AS customer_segment,
-  TRIM(account_status)                           AS account_status,
+  CASE TRIM(UPPER(customer_tier))
+    WHEN 'PLATINUM' THEN 'Platinum'
+    WHEN 'GOLD'     THEN 'Gold'
+    WHEN 'SILVER'   THEN 'Silver'
+    WHEN 'BRONZE'   THEN 'Bronze'
+    ELSE INITCAP(TRIM(customer_tier))
+  END                                            AS customer_segment,
+  CASE TRIM(UPPER(account_status))
+    WHEN 'ACTIVE'    THEN 'Active'
+    WHEN 'INACTIVE'  THEN 'Inactive'
+    WHEN 'SUSPENDED' THEN 'Suspended'
+    ELSE INITCAP(TRIM(account_status))
+  END                                            AS account_status,
   DATE(SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S', registration_date)) AS created_date,
   _FILE_NAME AS source_file,
   CURRENT_TIMESTAMP()                            AS updated_at

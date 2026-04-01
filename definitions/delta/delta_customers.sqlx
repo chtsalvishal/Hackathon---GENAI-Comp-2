@@ -66,8 +66,19 @@ IF NOT batch_already_processed THEN
       TRIM(phone)              AS phone,
       TRIM(UPPER(city))        AS city,
       TRIM(UPPER(country))     AS country,
-      TRIM(customer_tier)      AS customer_segment,
-      TRIM(account_status)     AS churn_risk
+      CASE TRIM(UPPER(customer_tier))
+        WHEN 'PLATINUM' THEN 'Platinum'
+        WHEN 'GOLD'     THEN 'Gold'
+        WHEN 'SILVER'   THEN 'Silver'
+        WHEN 'BRONZE'   THEN 'Bronze'
+        ELSE INITCAP(TRIM(customer_tier))
+      END                      AS customer_segment,
+      CASE TRIM(UPPER(account_status))
+        WHEN 'ACTIVE'    THEN 'Active'
+        WHEN 'INACTIVE'  THEN 'Inactive'
+        WHEN 'SUSPENDED' THEN 'Suspended'
+        ELSE INITCAP(TRIM(account_status))
+      END                      AS churn_risk
     FROM `vishal-sandpit-474523.bronze.ext_customers_delta`
     WHERE customer_id IS NOT NULL
       AND TRIM(customer_id) != ''

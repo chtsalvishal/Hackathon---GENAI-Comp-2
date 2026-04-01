@@ -68,27 +68,8 @@ resource "google_dataform_repository_release_config" "production" {
 }
 
 # ---------------------------------------------------------------------------
-# Dataform Workflow Configuration — daily full refresh.
-# Replaces the Python script that manually called the Dataform API.
-# Runs all tables at 14:30 UTC (after midnight AEDT compilation at 12:00 UTC).
+# Dataform Workflow Configuration — REMOVED.
+# The full pipeline runs ONCE manually on initial deployment.
+# Delta ingestion is event-driven via Eventarc (GCS → delta-ingest-workflow).
+# No scheduled automated full-refresh is required.
 # ---------------------------------------------------------------------------
-
-resource "google_dataform_repository_workflow_config" "daily_full_refresh" {
-  provider   = google-beta
-  project    = var.project_id
-  region     = var.region
-  repository = google_dataform_repository.main.name
-
-  name           = "daily-full-refresh"
-  release_config = google_dataform_repository_release_config.production.id
-  cron_schedule  = "30 14 * * *"  # 14:30 UTC = 00:30 AEDT
-  time_zone      = "UTC"
-
-  invocation_config {
-    fully_refresh_incremental_tables_enabled = true
-    transitive_dependencies_included         = true
-    transitive_dependents_included           = true
-  }
-
-  depends_on = [google_dataform_repository_release_config.production]
-}

@@ -31,22 +31,7 @@
           "environment": "production"
         }
       },
-      "scheduledExecutionConfigs": [
-        {
-          "cronSchedule": "0 3 * * *",
-          "timeZone": "Australia/Sydney",
-          "executionSpec": {
-            "tags": ["daily_refresh"]
-          }
-        },
-        {
-          "cronSchedule": "*/30 * * * *",
-          "timeZone": "Australia/Sydney",
-          "executionSpec": {
-            "tags": ["delta"]
-          }
-        }
-      ]
+      "scheduledExecutionConfigs": []
     }
   ]
 }
