@@ -2,5 +2,5 @@ config {
   type: "declaration",
   database: "vishal-sandpit-474523",
   schema: "ai",
-  name: "product_upsell"
+  name: "customer_concierge"
 }
