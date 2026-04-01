@@ -1,0 +1,11 @@
+config {
+  type: "operations",
+  schema: "ai",
+  name: "gemini_pro_model",
+  description: "Remote model connection to Gemini Pro — required for AI inference procedures.",
+  tags: ["ai"]
+}
+
+CREATE OR REPLACE MODEL `${database()}.ai.gemini_pro_model`
+REMOTE WITH CONNECTION `australia-southeast1.gemini-pro-connection`
+OPTIONS (ENDPOINT = 'gemini-1.5-flash');
