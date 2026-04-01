@@ -9,13 +9,14 @@ WITH base AS (
   SELECT
     customer_id,
     customer_segment,
-    churn_risk
+    churn_risk,
+    CAST(FLOOR(ABS(FARM_FINGERPRINT(customer_id))/1000) AS INT64) AS batch_id
   FROM ${ref("dim_customers_analyst")}
   WHERE order_count > 0
-  AND MOD(ABS(FARM_FINGERPRINT(customer_id)), 4) = 2
+    AND MOD(ABS(FARM_FINGERPRINT(customer_id)), 4) = 2
 ),
 
-ai AS (
+ai_batch_0 AS (
   SELECT
     customer_id,
     ml_generate_text_llm_result AS raw_output,
@@ -35,20 +36,64 @@ ai AS (
           ', Risk: ', churn_risk
         ) AS prompt
       FROM base
+      WHERE batch_id = 0
     ),
     STRUCT(
       0.1 AS temperature,
       256 AS max_output_tokens,
-      TRUE AS flatten_json_output
+      FALSE AS flatten_json_output
     )
   )
+),
+
+ai_batch_1 AS (
+  SELECT
+    customer_id,
+    ml_generate_text_llm_result AS raw_output,
+    ml_generate_text_status AS status
+  FROM ML.GENERATE_TEXT(
+    MODEL `${database()}.ai.gemini_pro_model`,
+    (
+      SELECT
+        customer_id,
+        CONCAT(
+          'Return ONLY valid JSON array.\n',
+          'Do not include markdown or explanation.\n',
+          'If invalid, return [].\n\n',
+          'Format:\n',
+          '[{"customer_id":"","persona":"","strategy":""}]\n\n',
+          'Segment: ', customer_segment,
+          ', Risk: ', churn_risk
+        ) AS prompt
+      FROM base
+      WHERE batch_id = 1
+    ),
+    STRUCT(
+      0.1 AS temperature,
+      256 AS max_output_tokens,
+      FALSE AS flatten_json_output
+    )
+  )
+),
+
+combined AS (
+  SELECT * FROM ai_batch_0
+  UNION ALL
+  SELECT * FROM ai_batch_1
+),
+
+cleaned AS (
+  SELECT
+    *,
+    REGEXP_REPLACE(raw_output, r"^```json\n|```$", "") AS clean_output
+  FROM combined
 )
 
 SELECT
   customer_id,
-  JSON_VALUE(raw_output, '$[0].persona') AS persona,
-  JSON_VALUE(raw_output, '$[0].strategy') AS strategy,
+  COALESCE(JSON_VALUE(clean_output, '$[0].persona'), JSON_VALUE(clean_output, '$.persona')) AS persona,
+  COALESCE(JSON_VALUE(clean_output, '$[0].strategy'), JSON_VALUE(clean_output, '$.strategy')) AS strategy,
   status,
   CURRENT_TIMESTAMP() AS generated_at
-FROM ai
+FROM cleaned
 WHERE raw_output IS NOT NULL
