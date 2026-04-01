@@ -85,7 +85,7 @@ combined AS (
 cleaned AS (
   SELECT
     *,
-    REGEXP_REPLACE(TO_JSON_STRING(raw_output), r"^\"```json\\n|```\"$", "") AS clean_output
+    REGEXP_EXTRACT(TO_JSON_STRING(raw_output), r"(\[[\s\S]*\]|\{[\s\S]*\})") AS clean_output
   FROM combined
 )
 

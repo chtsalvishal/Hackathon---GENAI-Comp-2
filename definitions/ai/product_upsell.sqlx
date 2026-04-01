@@ -24,6 +24,6 @@ WITH unioned AS (
 
 SELECT
   *,
-  CONCAT("Recommended Product Segment: ", persona, "\nUpsell Strategy: ", strategy) AS gemini_persona_and_strategy,
+  CONCAT("Recommended Product Segment: ", COALESCE(persona, "Core"), "\nUpsell Strategy: ", COALESCE(strategy, "Basic Upsell")) AS gemini_persona_and_strategy,
   status                                          AS generation_status
 FROM unioned
