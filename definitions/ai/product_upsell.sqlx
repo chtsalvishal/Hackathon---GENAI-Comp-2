@@ -13,13 +13,13 @@ post_operations {
 }
 
 WITH unioned AS (
-  SELECT * FROM ${ref("product_ai_1")}
+  SELECT product_id, cross_sell, upsell, status, generated_at FROM ${ref("product_ai_1")}
   UNION ALL
-  SELECT * FROM ${ref("product_ai_2")}
+  SELECT product_id, cross_sell, upsell, status, generated_at FROM ${ref("product_ai_2")}
   UNION ALL
-  SELECT * FROM ${ref("product_ai_3")}
+  SELECT product_id, cross_sell, upsell, status, generated_at FROM ${ref("product_ai_3")}
   UNION ALL
-  SELECT * FROM ${ref("product_ai_4")}
+  SELECT product_id, cross_sell, upsell, status, generated_at FROM ${ref("product_ai_4")}
 )
 
 SELECT
