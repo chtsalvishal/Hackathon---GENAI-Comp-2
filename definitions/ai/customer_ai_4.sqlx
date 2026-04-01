@@ -3,7 +3,6 @@ config {
   schema: "ai",
   tags: ["ai", "daily_refresh"],
   dependencies: ["dim_customers_analyst", "gemini_pro_model"]
-  -- No dependency on customer_ai_3 — runs in PARALLEL with shards 1, 2, 3
 }
 
 -- Customer AI Shard 4/4 — processes customers where FARM_FINGERPRINT MOD 4 = 3
