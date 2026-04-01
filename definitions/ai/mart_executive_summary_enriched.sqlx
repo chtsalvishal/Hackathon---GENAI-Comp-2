@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "ai",
   description: "AI-enriched executive summary — dynamic view combining gold metrics with Gemini insights.",
-  tags: ["ai", "daily_refresh", "analyst", "data_agent"]
+  tags: ["ai_aggregate", "analyst", "data_agent"]
 }
 
 SELECT

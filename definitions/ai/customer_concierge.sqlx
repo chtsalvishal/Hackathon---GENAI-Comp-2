@@ -2,31 +2,18 @@ config {
   type: "table",
   schema: "ai",
   name: "customer_concierge",
-  tags: ["ai", "daily_refresh"]
+  tags: ["ai_aggregate"],
+  description: "Customer AI personas and retention strategies produced by the Cloud Run async processor. Reads from ai.customer_ai_raw which is populated by the customer-ai-processor Cloud Run service in Phase 3 of the daily-refresh workflow — before this table is built in Phase 4."
 }
-
-post_operations {
-  DROP TABLE IF EXISTS ${ref("customer_ai_1")};
-  DROP TABLE IF EXISTS ${ref("customer_ai_2")};
-  DROP TABLE IF EXISTS ${ref("customer_ai_3")};
-  DROP TABLE IF EXISTS ${ref("customer_ai_4")};
-}
-
-WITH unioned AS (
-  SELECT customer_id, persona, strategy, status, generated_at FROM ${ref("customer_ai_1")}
-  UNION ALL
-  SELECT customer_id, persona, strategy, status, generated_at FROM ${ref("customer_ai_2")}
-  UNION ALL
-  SELECT customer_id, persona, strategy, status, generated_at FROM ${ref("customer_ai_3")}
-  UNION ALL
-  SELECT customer_id, persona, strategy, status, generated_at FROM ${ref("customer_ai_4")}
-)
 
 SELECT
   customer_id,
   persona,
   strategy,
   generated_at,
-  CONCAT('Persona: ', COALESCE(persona, 'Valued customer'), '\nStrategy: ', COALESCE(strategy, 'Monitor engagement')) AS gemini_persona_and_strategy,
-  status AS generation_status
-FROM unioned
+  CONCAT(
+    'Persona: ',   COALESCE(persona,   'Valued customer'),
+    '\nStrategy: ', COALESCE(strategy, 'Monitor engagement')
+  )                         AS gemini_persona_and_strategy,
+  CASE WHEN status = '' THEN 'success' ELSE 'error' END AS generation_status
+FROM `${database()}.ai.customer_ai_raw`

@@ -345,6 +345,49 @@ resource "google_project_iam_member" "cloudbuild_sa_bq_job_user" {
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.cloudbuild.email}"
 }
+# ---------------------------------------------------------------------------
+# Cloud Run SA — runs the customer AI async processor container
+# ---------------------------------------------------------------------------
+
+resource "google_service_account" "cloud_run_customer_ai" {
+  project      = var.project_id
+  account_id   = "cloud-run-customer-ai-sa"
+  display_name = "Cloud Run Customer AI SA"
+  description  = "Service account for the customer-ai-processor Cloud Run service."
+}
+
+resource "google_project_iam_member" "cloud_run_sa_bq_viewer" {
+  project = var.project_id
+  role    = "roles/bigquery.dataViewer"
+  member  = "serviceAccount:${google_service_account.cloud_run_customer_ai.email}"
+}
+
+resource "google_project_iam_member" "cloud_run_sa_bq_editor" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${google_service_account.cloud_run_customer_ai.email}"
+}
+
+resource "google_project_iam_member" "cloud_run_sa_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.cloud_run_customer_ai.email}"
+}
+
+resource "google_project_iam_member" "cloud_run_sa_vertex_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.cloud_run_customer_ai.email}"
+}
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+
 output "ai_developer_email" {
   value = google_service_account.ai_developer.email
+}
+
+output "cloud_run_customer_ai_sa_email" {
+  value = google_service_account.cloud_run_customer_ai.email
 }

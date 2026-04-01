@@ -193,7 +193,22 @@ module "monitoring" {
 }
 
 # ---------------------------------------------------------------------------
-# 15. Cloud Build — CI/CD triggers wired to the GitHub repository.
+# 15. Cloud Run — customer-ai-processor (Python async Gemini service).
+#     Replaces the 4 Dataform customer_ai shard tables.
+#     Image built and pushed to GCR by Cloud Build before terraform apply.
+# ---------------------------------------------------------------------------
+module "cloud_run" {
+  source             = "./modules/cloud_run"
+  project_id         = var.project_id
+  region             = var.region
+  cloud_run_sa_email = module.iam.cloud_run_customer_ai_sa_email
+  workflows_sa_email = module.iam.workflows_sa_email
+
+  depends_on = [module.project_services, module.iam]
+}
+
+# ---------------------------------------------------------------------------
+# 16. Cloud Build — CI/CD triggers wired to the GitHub repository.
 # ---------------------------------------------------------------------------
 module "cloud_build" {
   source                     = "./modules/cloud_build"
@@ -205,3 +220,5 @@ module "cloud_build" {
 
   depends_on = [module.project_services, module.iam, module.secret_manager]
 }
+
+

@@ -3,9 +3,9 @@ main:
   steps:
     - init:
         assign:
-          - project_id: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
-          - location: ${sys.get_env("GOOGLE_CLOUD_LOCATION")}
-          - repository: "intelia-warehouse"
+          - project_id:    ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - location:      ${sys.get_env("GOOGLE_CLOUD_LOCATION")}
+          - repository:    "intelia-warehouse"
           - dataform_base: ${"https://dataform.googleapis.com/v1beta1/projects/" + project_id + "/locations/" + location + "/repositories/" + repository}
 
     - log_start:
@@ -14,6 +14,7 @@ main:
           text: "daily-refresh-workflow started"
           severity: INFO
 
+    # ── Phase 1: Compile Dataform ────────────────────────────────────────────
     - create_compilation:
         call: http.post
         args:
@@ -39,7 +40,11 @@ main:
           text: ${"Compilation result - " + compilation_name}
           severity: INFO
 
-    - create_invocation:
+    # ── Phase 2: Run main pipeline (bronze → silver → gold + product AI) ─────
+    # Tag: daily_refresh
+    # Includes: all bronze/silver/gold tables, product_ai_1-4, product_upsell
+    # Excludes: customer_ai_1-4 (tag "ai" only) and ai_aggregate tables
+    - create_main_invocation:
         call: http.post
         args:
           url: ${dataform_base + "/workflowInvocations"}
@@ -48,65 +53,170 @@ main:
           body:
             compilationResult: ${compilation_name}
             invocationConfig:
+              includedTags:
+                - "daily_refresh"
               serviceAccount: ${"dataform-sa@" + project_id + ".iam.gserviceaccount.com"}
               fullyRefreshIncrementalTablesEnabled: true
               transitiveDependenciesIncluded: true
-              transitiveDependentsIncluded: true
-        result: invoke_resp
+              transitiveDependentsIncluded: false
+        result: main_invoke_resp
 
-    - check_invoke_created:
+    - check_main_invoke_created:
         switch:
-          - condition: ${invoke_resp.code != 200}
-            raise: ${"Invocation creation failed HTTP " + string(invoke_resp.code)}
+          - condition: ${main_invoke_resp.code != 200}
+            raise: ${"Main invocation creation failed HTTP " + string(main_invoke_resp.code)}
 
-    - extract_invocation_name:
+    - extract_main_invocation_name:
         assign:
-          - invocation_name: ${invoke_resp.body.name}
-          - poll_url: ${"https://dataform.googleapis.com/v1beta1/" + invocation_name}
+          - main_invocation_name: ${main_invoke_resp.body.name}
+          - main_poll_url: ${"https://dataform.googleapis.com/v1beta1/" + main_invocation_name}
 
-    - log_invocation:
+    - log_main_invocation:
         call: sys.log
         args:
-          text: ${"Invocation started - " + invocation_name}
+          text: ${"Main pipeline invocation started - " + main_invocation_name}
           severity: INFO
 
-    - poll_loop:
+    - poll_main_loop:
         steps:
-          - poll:
+          - poll_main:
               call: http.get
               args:
-                url: ${poll_url}
+                url: ${main_poll_url}
                 auth:
                   type: OAuth2
-              result: poll_resp
+              result: main_poll_resp
 
-          - check_state:
+          - check_main_state:
               switch:
-                - condition: ${poll_resp.body.state == "SUCCEEDED"}
-                  next: succeeded
-                - condition: ${poll_resp.body.state == "FAILED"}
-                  next: failed
-                - condition: ${poll_resp.body.state == "CANCELING" or poll_resp.body.state == "CANCELLED"}
-                  next: cancelled
+                - condition: ${main_poll_resp.body.state == "SUCCEEDED"}
+                  next: log_main_succeeded
+                - condition: ${main_poll_resp.body.state == "FAILED"}
+                  next: main_failed
+                - condition: ${main_poll_resp.body.state == "CANCELING" or main_poll_resp.body.state == "CANCELLED"}
+                  next: main_cancelled
 
-          - wait:
+          - wait_main:
               call: sys.sleep
               args:
                 seconds: 60
-              next: poll
+              next: poll_main
 
+    - log_main_succeeded:
+        call: sys.log
+        args:
+          text: ${"Main pipeline SUCCEEDED - " + main_invocation_name}
+          severity: INFO
+
+    # ── Phase 3: Customer AI via Cloud Run ───────────────────────────────────
+    # Python async service — 50 concurrent Gemini calls, ~5 min for 80K rows.
+    # Writes results to ai.customer_ai_raw in BigQuery.
+    - log_cloud_run_start:
+        call: sys.log
+        args:
+          text: "Starting Cloud Run customer AI processor"
+          severity: INFO
+
+    - call_customer_ai_processor:
+        call: http.post
+        args:
+          url: ${"https://customer-ai-processor-" + project_id + ".a.run.app/process"}
+          auth:
+            type: OIDC
+          timeout: 3600
+        result: ai_resp
+
+    - check_ai_processor:
+        switch:
+          - condition: ${ai_resp.code != 200}
+            raise: ${"Customer AI processor failed HTTP " + string(ai_resp.code) + ": " + json.encode_to_string(ai_resp.body)}
+
+    - log_cloud_run_done:
+        call: sys.log
+        args:
+          text: ${"Customer AI processor SUCCEEDED - " + json.encode_to_string(ai_resp.body)}
+          severity: INFO
+
+    # ── Phase 4: Run ai_aggregate tables (customer_concierge + downstream) ───
+    # Reads from ai.customer_ai_raw (written by Cloud Run above).
+    # Produces: customer_concierge, ai_enriched_profiles,
+    #           mart_executive_summary_enriched
+    - create_aggregate_invocation:
+        call: http.post
+        args:
+          url: ${dataform_base + "/workflowInvocations"}
+          auth:
+            type: OAuth2
+          body:
+            compilationResult: ${compilation_name}
+            invocationConfig:
+              includedTags:
+                - "ai_aggregate"
+              serviceAccount: ${"dataform-sa@" + project_id + ".iam.gserviceaccount.com"}
+              transitiveDependenciesIncluded: true
+              transitiveDependentsIncluded: false
+        result: agg_invoke_resp
+
+    - check_agg_invoke_created:
+        switch:
+          - condition: ${agg_invoke_resp.code != 200}
+            raise: ${"AI aggregate invocation creation failed HTTP " + string(agg_invoke_resp.code)}
+
+    - extract_agg_invocation_name:
+        assign:
+          - agg_invocation_name: ${agg_invoke_resp.body.name}
+          - agg_poll_url: ${"https://dataform.googleapis.com/v1beta1/" + agg_invocation_name}
+
+    - log_agg_invocation:
+        call: sys.log
+        args:
+          text: ${"AI aggregate invocation started - " + agg_invocation_name}
+          severity: INFO
+
+    - poll_agg_loop:
+        steps:
+          - poll_agg:
+              call: http.get
+              args:
+                url: ${agg_poll_url}
+                auth:
+                  type: OAuth2
+              result: agg_poll_resp
+
+          - check_agg_state:
+              switch:
+                - condition: ${agg_poll_resp.body.state == "SUCCEEDED"}
+                  next: succeeded
+                - condition: ${agg_poll_resp.body.state == "FAILED"}
+                  next: agg_failed
+                - condition: ${agg_poll_resp.body.state == "CANCELING" or agg_poll_resp.body.state == "CANCELLED"}
+                  next: agg_cancelled
+
+          - wait_agg:
+              call: sys.sleep
+              args:
+                seconds: 30
+              next: poll_agg
+
+    # ── Terminal states ───────────────────────────────────────────────────────
     - succeeded:
         call: sys.log
         args:
-          text: ${"Daily refresh SUCCEEDED - " + invocation_name}
+          text: ${"Daily refresh SUCCEEDED - all phases complete"}
           severity: INFO
         next: done
 
-    - failed:
-        raise: ${"Dataform daily refresh FAILED - " + invocation_name}
+    - main_failed:
+        raise: ${"Main pipeline FAILED - " + main_invocation_name}
 
-    - cancelled:
-        raise: ${"Dataform daily refresh CANCELLED - " + invocation_name}
+    - main_cancelled:
+        raise: ${"Main pipeline CANCELLED - " + main_invocation_name}
+
+    - agg_failed:
+        raise: ${"AI aggregate step FAILED - " + agg_invocation_name}
+
+    - agg_cancelled:
+        raise: ${"AI aggregate step CANCELLED - " + agg_invocation_name}
 
     - done:
-        return: ${invocation_name}
+        return: ${"Completed: " + main_invocation_name + " | " + agg_invocation_name}
