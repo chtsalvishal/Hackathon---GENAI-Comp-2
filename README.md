@@ -2,7 +2,6 @@
 
 A production-grade, fully automated, AI-enriched BigQuery data warehouse deployable to any GCP project by changing four values in `terraform/terraform.tfvars` and running `terraform apply`.
 
-**GCP Project**: `vishal-sandpit-474523` | **Region**: `australia-southeast1`  
 **GitHub**: `chtsalvishal/Hackathon---GENAI-Comp-2`
 
 ---
