@@ -14,9 +14,8 @@ resource "google_cloud_run_v2_service" "customer_ai" {
   template {
     service_account = var.cloud_run_sa_email
 
-    # Allow up to 30 minutes — covers large customer batches at ~25-50 RPS
-    # Note: 1800s is the maximum timeout allowed for synchronous Workflows HTTP calls
-    timeout = "1800s"
+    # /process and /status both return quickly (<5 s); 300 s is generous
+    timeout = "300s"
 
     containers {
       image = "gcr.io/${var.project_id}/customer-ai-processor:latest"
@@ -40,12 +39,12 @@ resource "google_cloud_run_v2_service" "customer_ai" {
       }
       env {
         name  = "CONCURRENCY"
-        value = "50"
+        value = "200"
       }
     }
 
     scaling {
-      min_instance_count = 0
+      min_instance_count = 1   # Keep alive so background thread isn't killed between polls
       max_instance_count = 1   # Single instance — batch job, not a web service
     }
   }

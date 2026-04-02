@@ -17,3 +17,4 @@ SELECT
   )                         AS gemini_persona_and_strategy,
   CASE WHEN status = '' THEN 'success' ELSE 'error' END AS generation_status
 FROM `${database()}.ai.customer_ai_raw`
+QUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY generated_at DESC) = 1

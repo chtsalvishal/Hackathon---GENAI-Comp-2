@@ -154,8 +154,9 @@ module "cloud_workflows" {
   project_id        = var.project_id
   region            = var.region
   workflows_sa_email = module.iam.workflows_sa_email
+  customer_ai_service_url = module.cloud_run.service_url
 
-  depends_on = [module.project_services, module.iam]
+  depends_on = [module.project_services, module.iam, module.cloud_run]
 }
 
 # ---------------------------------------------------------------------------

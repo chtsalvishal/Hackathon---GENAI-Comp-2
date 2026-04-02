@@ -108,28 +108,53 @@ main:
           text: ${"Main pipeline SUCCEEDED - " + main_invocation_name}
           severity: INFO
 
-    # ── Phase 3: Customer AI via Cloud Run ───────────────────────────────────
-    # Python async service — 50 concurrent Gemini calls, ~5 min for 80K rows.
-    # Writes results to ai.customer_ai_raw in BigQuery.
+    # ── Phase 3: Customer AI via Cloud Run (fire-and-forget + polling) ────────
+    # POST /process returns 202 immediately; background thread runs Gemini.
+    # Workflow polls GET /status every 30 s until status == "done".
+    # No synchronous HTTP timeout risk — decoupled from the 1800 s limit.
     - log_cloud_run_start:
         call: sys.log
         args:
-          text: "Starting Cloud Run customer AI processor"
+          text: "Triggering Cloud Run customer AI processor"
           severity: INFO
 
-    - call_customer_ai_processor:
+    - trigger_customer_ai:
         call: http.post
         args:
-          url: ${"https://customer-ai-processor-" + project_id + ".a.run.app/process"}
+          url: ${"__CUSTOMER_AI_SERVICE_URL__" + "/process"}
           auth:
             type: OIDC
-          timeout: 1800
-        result: ai_resp
+          timeout: 60
+        result: start_resp
 
-    - check_ai_processor:
+    - check_started:
         switch:
-          - condition: ${ai_resp.code != 200}
-            raise: ${"Customer AI processor failed HTTP " + string(ai_resp.code)}
+          - condition: ${start_resp.code != 202}
+            raise: ${"Customer AI failed to start - HTTP " + string(start_resp.code)}
+
+    - poll_customer_ai_loop:
+        steps:
+          - poll_ai_status:
+              call: http.get
+              args:
+                url: ${"__CUSTOMER_AI_SERVICE_URL__" + "/status"}
+                auth:
+                  type: OIDC
+                timeout: 30
+              result: ai_status_resp
+
+          - check_ai_done:
+              switch:
+                - condition: ${ai_status_resp.body.status == "done"}
+                  next: log_cloud_run_done
+                - condition: ${ai_status_resp.body.status == "error"}
+                  next: ai_processor_failed
+
+          - wait_ai:
+              call: sys.sleep
+              args:
+                seconds: 30
+              next: poll_ai_status
 
     - log_cloud_run_done:
         call: sys.log
@@ -217,6 +242,9 @@ main:
 
     - agg_cancelled:
         raise: ${"AI aggregate step CANCELLED - " + agg_invocation_name}
+
+    - ai_processor_failed:
+        raise: "Customer AI processor reported an error - check Cloud Run logs"
 
     - done:
         return: ${"Completed - " + main_invocation_name + " and " + agg_invocation_name}

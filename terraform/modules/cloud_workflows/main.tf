@@ -27,7 +27,11 @@ resource "google_workflows_workflow" "daily_refresh" {
   description     = "Full warehouse refresh — compiles Dataform and runs all tables on a daily schedule."
   service_account = var.workflows_sa_email
 
-  source_contents = file("${path.module}/daily-refresh-workflow.yaml")
+  source_contents = replace(
+    file("${path.module}/daily-refresh-workflow.yaml"),
+    "__CUSTOMER_AI_SERVICE_URL__",
+    var.customer_ai_service_url
+  )
 
   labels = {
     workload = "daily-refresh"
