@@ -123,18 +123,18 @@ main:
           url: ${"https://customer-ai-processor-" + project_id + ".a.run.app/process"}
           auth:
             type: OIDC
-          timeout: 3600
+          timeout: 1800
         result: ai_resp
 
     - check_ai_processor:
         switch:
           - condition: ${ai_resp.code != 200}
-            raise: ${"Customer AI processor failed HTTP " + string(ai_resp.code) + ": " + json.encode_to_string(ai_resp.body)}
+            raise: ${"Customer AI processor failed HTTP " + string(ai_resp.code)}
 
     - log_cloud_run_done:
         call: sys.log
         args:
-          text: ${"Customer AI processor SUCCEEDED - " + json.encode_to_string(ai_resp.body)}
+          text: "Customer AI processor SUCCEEDED"
           severity: INFO
 
     # ── Phase 4: Run ai_aggregate tables (customer_concierge + downstream) ───
@@ -219,4 +219,4 @@ main:
         raise: ${"AI aggregate step CANCELLED - " + agg_invocation_name}
 
     - done:
-        return: ${"Completed: " + main_invocation_name + " | " + agg_invocation_name}
+        return: ${"Completed - " + main_invocation_name + " and " + agg_invocation_name}

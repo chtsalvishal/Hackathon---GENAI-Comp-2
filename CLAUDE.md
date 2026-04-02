@@ -89,4 +89,4 @@ Single-point config: `terraform/terraform.tfvars`. Module order in `terraform/ma
 - `cloudrun/customer_ai/main.py` — Flask + vertexai SDK + asyncio, `CONCURRENCY=50`
 - SA: `cloud-run-customer-ai-sa@vishal-sandpit-474523.iam.gserviceaccount.com`
 - Only `workflows-sa` can invoke it (IAM enforced in `terraform/modules/cloud_run/main.tf`)
-- Writes to `ai.customer_ai_raw`; gunicorn timeout 3600s
+- Writes to `ai.customer_ai_raw`; gunicorn timeout 1800s (Workflow 1800s max limit)

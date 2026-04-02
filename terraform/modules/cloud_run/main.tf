@@ -14,8 +14,9 @@ resource "google_cloud_run_v2_service" "customer_ai" {
   template {
     service_account = var.cloud_run_sa_email
 
-    # Allow up to 60 minutes — covers large customer batches at ~25-50 RPS
-    timeout = "3600s"
+    # Allow up to 30 minutes — covers large customer batches at ~25-50 RPS
+    # Note: 1800s is the maximum timeout allowed for synchronous Workflows HTTP calls
+    timeout = "1800s"
 
     containers {
       image = "gcr.io/${var.project_id}/customer-ai-processor:latest"
