@@ -6,12 +6,13 @@ runs Gemini inference. GET /status polls progress every 30s from the workflow.
 
 Key design:
   - Each thread creates its own GenerativeModel instance (thread-safe)
-  - CONCURRENCY=30 sustains throughput without bursting Gemini RPM quota
+  - CONCURRENCY=100 with 90 RPM token bucket — saturates quota without retry storms
   - WRITE_TRUNCATE load job atomically replaces customer_ai_raw each run
 
 Environment variables:
   GOOGLE_CLOUD_PROJECT  — set automatically by Cloud Run
-  CONCURRENCY           — parallel Gemini threads (default: 30)
+  CONCURRENCY           — parallel Gemini threads (default: 100)
+  GEMINI_RPM            — max requests per minute sent to Vertex AI (default: 90)
   LOCATION              — Vertex AI region (default: australia-southeast1)
 """
 
@@ -25,6 +26,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
+from aiolimiter import AsyncLimiter
 from flask import Flask, jsonify
 from google.cloud import bigquery
 import vertexai
@@ -35,7 +37,8 @@ from vertexai.generative_models import GenerativeModel, GenerationConfig
 # ---------------------------------------------------------------------------
 PROJECT_ID  = os.environ.get("GOOGLE_CLOUD_PROJECT", "vishal-sandpit-474523")
 LOCATION    = os.environ.get("LOCATION", "australia-southeast1")
-CONCURRENCY = int(os.environ.get("CONCURRENCY", "30"))
+CONCURRENCY = int(os.environ.get("CONCURRENCY", "100"))
+GEMINI_RPM  = int(os.environ.get("GEMINI_RPM", "90"))
 MODEL_NAME  = "gemini-2.5-flash"
 
 SOURCE_TABLE = f"{PROJECT_ID}.gold.dim_customers_analyst"
@@ -133,7 +136,6 @@ def _call_gemini_sync(row: dict) -> dict:
     except Exception as exc:
         persona  = FALLBACK_PERSONA
         strategy = FALLBACK_STRATEGY
-        # Include exception type so errors are diagnosable in customer_ai_raw
         status   = f"{type(exc).__name__}: {str(exc)[:450]}"
         log.warning("Gemini error for customer %s: %s", row["customer_id"], status)
 
@@ -147,17 +149,23 @@ def _call_gemini_sync(row: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Async orchestration
+# Async orchestration — rate-limited token bucket + concurrency semaphore
 # ---------------------------------------------------------------------------
 async def _process_all(rows: list[dict]) -> list[dict]:
-    semaphore = asyncio.Semaphore(CONCURRENCY)
-    loop      = asyncio.get_running_loop()
-    executor  = ThreadPoolExecutor(max_workers=CONCURRENCY)
+    # Token bucket: gates how many requests are sent per minute to Vertex AI.
+    # CONCURRENCY controls how many threads are active simultaneously.
+    # Together they allow high parallelism without triggering 429 quota errors.
+    rate_limiter = AsyncLimiter(max_rate=GEMINI_RPM, time_period=60)
+    semaphore    = asyncio.Semaphore(CONCURRENCY)
+    loop         = asyncio.get_running_loop()
+    executor     = ThreadPoolExecutor(max_workers=CONCURRENCY)
 
     async def _call(row: dict) -> dict:
         async with semaphore:
-            return await loop.run_in_executor(executor, _call_gemini_sync, row)
+            async with rate_limiter:
+                return await loop.run_in_executor(executor, _call_gemini_sync, row)
 
+    log.info("Processing %d rows | concurrency=%d | rpm_limit=%d", len(rows), CONCURRENCY, GEMINI_RPM)
     results = await asyncio.gather(*[_call(row) for row in rows])
     executor.shutdown(wait=False)
     return list(results)
@@ -256,7 +264,7 @@ def process():
         _reset_job()
 
     threading.Thread(target=_run_job, daemon=True).start()
-    log.info("Customer AI processor started (concurrency=%d)", CONCURRENCY)
+    log.info("Customer AI processor started (concurrency=%d, rpm=%d)", CONCURRENCY, GEMINI_RPM)
     return jsonify({"status": "started"}), 202
 
 
@@ -274,7 +282,8 @@ def status():
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "project": PROJECT_ID,
-                    "model": MODEL_NAME, "concurrency": CONCURRENCY}), 200
+                    "model": MODEL_NAME, "concurrency": CONCURRENCY,
+                    "rpm_limit": GEMINI_RPM}), 200
 
 
 if __name__ == "__main__":

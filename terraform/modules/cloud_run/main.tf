@@ -39,7 +39,11 @@ resource "google_cloud_run_v2_service" "customer_ai" {
       }
       env {
         name  = "CONCURRENCY"
-        value = "30"
+        value = "100"
+      }
+      env {
+        name  = "GEMINI_RPM"
+        value = "90"
       }
     }
 
