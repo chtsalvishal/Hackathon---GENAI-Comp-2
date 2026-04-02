@@ -20,9 +20,9 @@ FROM `${database()}.ai.customer_ai_raw`
 QUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY generated_at DESC) = 1
 
 post_operations {
-  DROP TABLE IF EXISTS ai.customer_ai_raw;
-  DROP TABLE IF EXISTS ai.customer_ai_1;
-  DROP TABLE IF EXISTS ai.customer_ai_2;
-  DROP TABLE IF EXISTS ai.customer_ai_3;
-  DROP TABLE IF EXISTS ai.customer_ai_4
+  DROP TABLE IF EXISTS `${database()}.ai.customer_ai_raw`;
+  DROP TABLE IF EXISTS `${database()}.ai.customer_ai_1`;
+  DROP TABLE IF EXISTS `${database()}.ai.customer_ai_2`;
+  DROP TABLE IF EXISTS `${database()}.ai.customer_ai_3`;
+  DROP TABLE IF EXISTS `${database()}.ai.customer_ai_4`;
 }

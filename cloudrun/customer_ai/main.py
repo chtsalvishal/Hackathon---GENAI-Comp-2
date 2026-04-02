@@ -31,7 +31,7 @@ from google.cloud import bigquery
 # ---------------------------------------------------------------------------
 PROJECT_ID     = os.environ.get("GOOGLE_CLOUD_PROJECT", "vishal-sandpit-474523")
 CHUNK_SIZE     = int(os.environ.get("CHUNK_SIZE",     "1000"))
-CHUNK_PARALLEL = int(os.environ.get("CHUNK_PARALLEL", "3"))
+CHUNK_PARALLEL = int(os.environ.get("CHUNK_PARALLEL", "10"))
 
 SOURCE_TABLE = f"{PROJECT_ID}.gold.dim_customers_analyst"
 OUTPUT_TABLE = f"{PROJECT_ID}.ai.customer_ai_raw"
