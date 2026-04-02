@@ -5,7 +5,7 @@ config {
   tags: ["ai_aggregate"],
   description: "Customer AI personas and retention strategies produced by the Cloud Run async processor. Reads from ai.customer_ai_raw which is populated by the customer-ai-processor Cloud Run service in Phase 3 of the daily-refresh workflow — before this table is built in Phase 4.",
   post_operations: [
-    "DROP TABLE IF EXISTS `" + database() + ".ai.customer_ai_raw`"
+    "DROP TABLE IF EXISTS ai.customer_ai_raw"
   ]
 }
 
