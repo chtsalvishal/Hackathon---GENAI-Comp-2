@@ -32,7 +32,7 @@ from vertexai.generative_models import GenerativeModel, GenerationConfig
 PROJECT_ID  = os.environ.get("GOOGLE_CLOUD_PROJECT", "vishal-sandpit-474523")
 LOCATION    = os.environ.get("LOCATION", "australia-southeast1")
 CONCURRENCY = int(os.environ.get("CONCURRENCY", "200"))
-MODEL_NAME  = "gemini-2.0-flash-001"
+MODEL_NAME  = "gemini-2.5-flash"
 
 SOURCE_TABLE = f"{PROJECT_ID}.gold.dim_customers_analyst"
 OUTPUT_TABLE = f"{PROJECT_ID}.ai.customer_ai_raw"
