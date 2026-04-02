@@ -202,6 +202,22 @@ def _write_results(bq: bigquery.Client, results: list[dict]) -> None:
     ).result()
 
 
+def _drop_legacy_shard_tables(bq: bigquery.Client) -> None:
+    """Drop customer_ai_1-4 legacy BQ ML shard tables if they exist."""
+    tables = [
+        f"{PROJECT_ID}.ai.customer_ai_1",
+        f"{PROJECT_ID}.ai.customer_ai_2",
+        f"{PROJECT_ID}.ai.customer_ai_3",
+        f"{PROJECT_ID}.ai.customer_ai_4",
+    ]
+    for table in tables:
+        try:
+            bq.delete_table(table, not_found_ok=True)
+            log.info("Dropped legacy table %s", table)
+        except Exception as exc:
+            log.warning("Could not drop %s: %s", table, exc)
+
+
 # ---------------------------------------------------------------------------
 # Background job
 # ---------------------------------------------------------------------------
@@ -255,6 +271,8 @@ def _run_job() -> None:
 
         _write_results(bq, all_results)
         log.info("Written %d rows to %s", len(all_results), OUTPUT_TABLE)
+
+        _drop_legacy_shard_tables(bq)
 
         with _job_lock:
             _job_state.update(
