@@ -2,8 +2,6 @@
 
 A production-grade, fully automated, AI-enriched BigQuery data warehouse deployable to any GCP project by changing four values in `terraform/terraform.tfvars` and running `terraform apply`.
 
-**GitHub**: `chtsalvishal/Hackathon---GENAI-Comp-2`
-
 ---
 
 ## What It Does
@@ -17,73 +15,110 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  DATA SOURCES                                                │
-│  Source CSVs → GCS  gs://{project}-delta-staging/           │
-│    batch_*_customers_delta.csv                               │
-│    batch_*_orders_delta.csv                                  │
-│    batch_*_order_items_delta.csv                             │
-│    batch_*_products_delta.csv                                │
-└─────────────────────┬────────────────────────────────────────┘
-                      │ GCS object.finalize event
-                      ▼
-┌──────────────────────────────────────────────────────────────┐
-│  EVENT-DRIVEN TRIGGER LAYER                                  │
-│                                                              │
-│  GCS → Pub/Sub (delta-arrivals topic)                        │
-│       → Eventarc trigger                                     │
-│       → Cloud Workflows: delta-ingest-workflow               │
-│            Compiles Dataform → runs [delta] tag only         │
-│            MERGE into gold dims, idempotency via audit log   │
-│                                                              │
-│  Daily (manual trigger): daily-refresh-workflow              │
-└─────────────────────┬────────────────────────────────────────┘
-                      │
-                      ▼
-┌──────────────────────────────────────────────────────────────┐
-│  DATAFORM PIPELINE  (definitions/  on GitHub main branch)    │
-│                                                              │
-│  BRONZE  — External tables query-in-place over GCS CSVs      │
-│  SILVER  — Typed, cleaned, normalised staging tables         │
-│  GOLD    — Business dims, facts, executive mart tables       │
-│  DELTA   — Event-driven MERGE operations (same norms)        │
-│  AI      — Gemini enrichment (customer + product)            │
-│  GOVERNANCE — Audit log, schema change log, glossary         │
-└─────────────────────┬────────────────────────────────────────┘
-                      │
-                      ▼
-┌──────────────────────────────────────────────────────────────┐
-│  DAILY REFRESH — 3-PHASE WORKFLOW                            │
-│                                                              │
-│  Phase 1  tag=daily_refresh                                  │
-│    bronze → silver → gold                                    │
-│    + product_ai_1-4 (BQ ML shards) → product_upsell         │
-│                                                              │
-│  Phase 2  Cloud Run: customer-ai-processor                   │
-│    Reads gold.dim_customers_analyst                          │
-│    200 concurrent Gemini 2.5 Flash calls (async Python)      │
-│    Writes ai.customer_ai_raw (WRITE_TRUNCATE)                │
-│                                                              │
-│  Phase 3  tag=ai_aggregate                                   │
-│    customer_concierge  (reads customer_ai_raw, then          │
-│                         DROP TABLE customer_ai_raw)          │
-│    ai_enriched_profiles                                      │
-│    mart_executive_summary_enriched                           │
-└─────────────────────┬────────────────────────────────────────┘
-                      │
-                      ▼
-┌──────────────────────────────────────────────────────────────┐
-│  CONSUMPTION LAYER                                           │
-│                                                              │
-│  Looker Studio dashboards (direct BQ connector)              │
-│    CCO Dashboard → rpt_cco_dashboard                         │
-│    CPO Dashboard → rpt_cpo_dashboard                         │
-│    CTO Dashboard → rpt_cto_dashboard                         │
-│                                                              │
-│  BigQuery Data Agent  (natural language → SQL)               │
-│  BigQuery Canvas      (Gemini-assisted ad-hoc exploration)   │
-│  Vertex AI Agent Builder  (custom agentic workflows)         │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  DATA SOURCES                                                       │
+│  Source systems → Cloud Storage (delta staging bucket)              │
+│    batch_*_customers_delta.csv  /  batch_*_orders_delta.csv         │
+│    batch_*_order_items_delta.csv  /  batch_*_products_delta.csv     │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │ object.finalize event
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  EVENT-DRIVEN INGESTION                                             │
+│                                                                     │
+│  Cloud Storage ──► Cloud Pub/Sub (delta-arrivals topic)             │
+│                         │                                           │
+│                    Eventarc trigger                                  │
+│                         │                                           │
+│                    Cloud Workflows                                   │
+│                    delta-ingest-workflow                             │
+│                      • Calls Dataform API to compile                │
+│                      • Invokes [delta] tag tables only              │
+│                      • MERGE into gold dims                         │
+│                      • Writes to BigQuery audit log                 │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  DAILY REFRESH — Cloud Workflows (daily-refresh-workflow)           │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ PHASE 1  Dataform  [tag: daily_refresh]                     │   │
+│  │                                                             │   │
+│  │  Cloud Storage                                              │   │
+│  │      │                                                      │   │
+│  │      ▼                                                      │   │
+│  │  BigQuery (bronze) — External tables, query-in-place        │   │
+│  │      │                                                      │   │
+│  │      ▼                                                      │   │
+│  │  BigQuery (silver) — Typed, cleaned, normalised             │   │
+│  │      │                                                      │   │
+│  │      ▼                                                      │   │
+│  │  BigQuery (gold)   — Dims, facts, marts, reports            │   │
+│  │      │                                                      │   │
+│  │      ▼                                                      │   │
+│  │  BigQuery ML → Vertex AI (Gemini 2.5 Flash)                 │   │
+│  │      product_ai_1-4 shards → product_upsell                 │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ PHASE 2  Cloud Run (customer-ai-processor)                  │   │
+│  │                                                             │   │
+│  │  POST /process → 202 (fire-and-forget)                      │   │
+│  │      │                                                      │   │
+│  │      ▼                                                      │   │
+│  │  Reads BigQuery gold.dim_customers_analyst                  │   │
+│  │      │                                                      │   │
+│  │      ▼                                                      │   │
+│  │  Vertex AI — Gemini 2.5 Flash                               │   │
+│  │  200 concurrent async calls (Python asyncio)                │   │
+│  │      │                                                      │   │
+│  │      ▼                                                      │   │
+│  │  Writes BigQuery ai.customer_ai_raw (WRITE_TRUNCATE)        │   │
+│  │                                                             │   │
+│  │  Workflow polls GET /status every 30s until done            │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ PHASE 3  Dataform  [tag: ai_aggregate]                      │   │
+│  │                                                             │   │
+│  │  customer_concierge  (reads + drops customer_ai_raw)        │   │
+│  │  ai_enriched_profiles                                       │   │
+│  │  mart_executive_summary_enriched                            │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  GOVERNANCE & OBSERVABILITY                                         │
+│                                                                     │
+│  Dataplex — lake/zone definitions, data quality scans, lineage      │
+│  Data Catalog — policy tag taxonomy (PII / Financial / Internal)    │
+│  Cloud Monitoring — budget alerts, workflow failure alerts,         │
+│                     data freshness SLA                              │
+│  BigQuery native lineage — auto-captured end-to-end                 │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  CI/CD                                                              │
+│                                                                     │
+│  GitHub ──► Cloud Build                                             │
+│    PR:    terraform fmt-check + validate + dataform compile         │
+│    Merge: terraform apply → trigger daily-refresh-workflow          │
+│                                                                     │
+│  Secret Manager — GitHub token for Dataform repository connection   │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  CONSUMPTION LAYER                                                  │
+│                                                                     │
+│  Looker Studio — CCO / CPO / CTO dashboards (direct BQ connector)  │
+│  BigQuery Data Agent — natural language → SQL                       │
+│  BigQuery Canvas — Gemini-assisted ad-hoc exploration               │
+│  Vertex AI Agent Builder — custom agentic workflows                 │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -94,19 +129,21 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 
 | Service | Role |
 |---------|------|
-| **BigQuery** | Central data warehouse — all datasets (bronze/silver/gold/ai/governance), BQ ML for product AI inference |
-| **Dataform** | SQL pipeline orchestration — git-backed, tag-based invocations, all tables materialised |
-| **Cloud Run** | Async Python Gemini processor — 200 concurrent calls, fire-and-forget, replaces BQ ML for customer AI |
-| **Cloud Workflows** | Pipeline orchestration — 3-phase daily refresh + event-driven delta ingestion |
-| **Eventarc** | GCS `object.finalize` → Cloud Workflow trigger for delta ingestion |
-| **Cloud Pub/Sub** | Event bus between GCS notifications and Eventarc |
-| **Cloud Storage** | Delta staging bucket — source of truth for incoming CSV files |
-| **Vertex AI** | Gemini 2.5 Flash model endpoint — called by Cloud Run customer AI processor |
-| **Dataplex** | Data governance — lake/zone definitions, data quality scans, lineage |
-| **Data Catalog** | Policy tag taxonomy — PII, Sensitive Financial, Internal Use Only column-level security |
-| **Cloud Build** | CI/CD — validates Terraform + Dataform on PR, applies on merge to main |
+| **BigQuery** | Central data warehouse — bronze/silver/gold/ai/governance datasets; BQ ML for product AI inference via `ML.GENERATE_TEXT` |
+| **Dataform** | Git-backed SQL pipeline — tag-based invocations, all outputs materialised as tables |
+| **Cloud Run** | Async Python Gemini processor — 200 concurrent calls, fire-and-forget architecture, writes customer AI results |
+| **Vertex AI** | Gemini 2.5 Flash model endpoint — called by both Cloud Run (customer AI) and BigQuery ML (product AI) |
+| **Cloud Workflows** | Pipeline orchestrator — 3-phase daily refresh and event-driven delta ingestion |
+| **Eventarc** | Triggers delta-ingest-workflow on GCS `object.finalize` events |
+| **Cloud Pub/Sub** | Event bus between GCS file notifications and Eventarc |
+| **Cloud Storage** | Delta staging bucket — incoming CSV source of truth |
+| **Dataplex** | Data governance — lake/zone definitions, scheduled data quality scans, lineage |
+| **Data Catalog** | Policy tag taxonomy — column-level security for PII and financial data |
+| **Cloud Build** | CI/CD — validates on PR, applies on merge to main |
 | **Secret Manager** | GitHub token for Dataform repository connection |
 | **Cloud Monitoring** | Budget alerts, workflow failure alerts, data freshness SLA |
+| **Cloud Scheduler** | Module wired but intentionally empty — pipeline triggered via Workflows |
+| **IAM** | 10 service accounts with least-privilege role bindings for each workload |
 
 ### Application Stack
 
@@ -115,8 +152,8 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 | Infrastructure-as-Code | Terraform >= 1.4, `hashicorp/google ~> 5.0` |
 | SQL Pipeline | Dataform SQLX (BigQuery Standard SQL) |
 | Customer AI service | Python 3.12, Flask, `google-cloud-aiplatform`, asyncio + ThreadPoolExecutor |
-| Container runtime | Cloud Run v2, gunicorn, single instance |
-| CI/CD config | Cloud Build YAML (`cloudbuild-validate.yaml`, `cloudbuild-deploy.yaml`) |
+| Container runtime | Cloud Run v2, gunicorn, always-on single instance |
+| CI/CD config | Cloud Build YAML |
 
 ---
 
@@ -146,7 +183,7 @@ Event-driven MERGE operations that mirror silver normalisation exactly. Triggere
 | `product_ai_1-4` | `dim_products` | BQ ML `ML.GENERATE_TEXT`, FARM_FINGERPRINT sharding |
 | `product_upsell` | product_ai_1-4 | Union of shards |
 | `customer_ai_raw` | `dim_customers_analyst` | Cloud Run async Python (temp — dropped after next step) |
-| `customer_concierge` | `customer_ai_raw` | Reads raw, drops temp table on completion |
+| `customer_concierge` | `customer_ai_raw` | Reads raw, drops temp table via `post_operations` |
 | `ai_enriched_profiles` | `dim_customers` + `customer_concierge` | Full enrichment join |
 | `mart_executive_summary_enriched` | `mart_executive_summary` + `customer_concierge` | AI-enhanced executive view |
 
@@ -161,16 +198,16 @@ Event-driven MERGE operations that mirror silver normalisation exactly. Triggere
 ## AI Pipeline Detail
 
 ### Product AI (BigQuery ML)
-Uses BQ ML `ML.GENERATE_TEXT` with `gemini-2.5-flash` remote model. Customers are sharded into 4 groups via `FARM_FINGERPRINT(product_id) MOD 4` to run in parallel, then unioned into `product_upsell`.
+BQ ML `ML.GENERATE_TEXT` with Gemini 2.5 Flash remote model. Products sharded into 4 groups via `FARM_FINGERPRINT(product_id) MOD 4` to run in parallel, then unioned into `product_upsell`.
 
 ### Customer AI (Cloud Run async)
-Replaced BQ ML for customer AI to overcome the 6 RPS quota ceiling:
+Replaced BQ ML to overcome the 6 RPS quota ceiling:
 
 1. Cloud Workflow sends `POST /process` — returns **202 immediately**
 2. Background thread launches 200 concurrent async Gemini 2.5 Flash calls
 3. Workflow polls `GET /status` every 30 seconds
-4. On completion, results are written to `ai.customer_ai_raw` via **WRITE_TRUNCATE** load job (atomic, no duplicates)
-5. Dataform builds `customer_concierge` from `customer_ai_raw`, then **drops** `customer_ai_raw` via `post_operations`
+4. Results written to `ai.customer_ai_raw` via **WRITE_TRUNCATE** load job (atomic, no duplicates)
+5. Dataform builds `customer_concierge`, then drops `customer_ai_raw` via `post_operations`
 
 **Throughput**: ~200 RPS sustained vs BQ ML's ~6 RPS — 33× faster.
 
@@ -179,9 +216,9 @@ Replaced BQ ML for customer AI to overcome the 6 RPS quota ceiling:
 ## Governance & Security
 
 - **Column-level security**: Data Catalog policy tags on PII columns (`email`, `phone`, `customer_name`) and financial columns (`total_lifetime_value`, `unit_price`) — enforced at query time
-- **BigQuery native lineage**: Auto-captured, visible in BQ UI — GCS → bronze → silver → gold → ai
-- **Dataplex data quality scans**: Scheduled scans on `dim_customers`, `fct_orders`, `dim_products` with scorecards visible in Cloud Monitoring
-- **Budget alerts**: 80% + 100% spend threshold alerts via Cloud Monitoring
+- **BigQuery native lineage**: Auto-captured — GCS → bronze → silver → gold → ai
+- **Dataplex data quality scans**: Scheduled scans on `dim_customers`, `fct_orders`, `dim_products` with scorecards in Cloud Monitoring
+- **Budget alerts**: 80% + 100% spend threshold alerts
 
 ---
 
@@ -203,7 +240,7 @@ Replaced BQ ML for customer AI to overcome the 6 RPS quota ceiling:
 │       └── requirements.txt
 ├── terraform/
 │   ├── main.tf               # Module wiring (16 modules)
-│   ├── terraform.tfvars      # Single config file — edit 4 values to redeploy
+│   ├── terraform.tfvars      # Single config file — edit to redeploy
 │   └── modules/
 │       ├── project_services/ # API enablement
 │       ├── iam/              # Service accounts + role bindings
@@ -220,10 +257,10 @@ Replaced BQ ML for customer AI to overcome the 6 RPS quota ceiling:
 │       ├── monitoring/       # Budget + alert policies
 │       ├── vertex_ai/        # Metadata store (validates aiplatform API)
 │       ├── cloud_build/      # CI/CD triggers
-│       └── cloud_scheduler/  # (empty — no scheduled full-refresh)
+│       └── cloud_scheduler/  # (intentionally empty — no scheduled refresh)
 ├── cloudbuild-validate.yaml  # PR: fmt-check + validate + dataform compile
 ├── cloudbuild-deploy.yaml    # Merge: terraform apply + trigger workflow
-├── dataform.json             # Dataform project config (defaultDatabase, etc.)
+├── dataform.json             # Dataform project config
 └── environments.json         # Dataform environments (schedules intentionally empty)
 ```
 
@@ -241,15 +278,14 @@ Replaced BQ ML for customer AI to overcome the 6 RPS quota ceiling:
 
 **1. Configure**
 ```bash
-# Edit the four required values
-vim terraform/terraform.tfvars
+# Edit the four required values in terraform/terraform.tfvars:
 # project_id, region, billing_account_id, github_app_installation_id
 ```
 
 **2. Build the Cloud Run image**
 ```bash
 gcloud builds submit \
-  --tag gcr.io/{project_id}/customer-ai-processor:latest \
+  --tag gcr.io/{YOUR_PROJECT_ID}/customer-ai-processor:latest \
   cloudrun/customer_ai/
 ```
 
@@ -262,28 +298,26 @@ terraform apply
 
 **4. Set GitHub token secret**
 ```bash
-# After terraform apply, populate the secret value
 echo -n "ghp_yourtoken" | gcloud secrets versions add github-token --data-file=-
 ```
 
 **5. First pipeline run**
 ```bash
-# Trigger the daily refresh manually
 gcloud workflows run daily-refresh-workflow \
-  --location=australia-southeast1 \
+  --location={YOUR_REGION} \
   --data='{}'
 ```
 
 ### Ongoing
 
-- **Delta ingestion**: Automatic on CSV file drop to GCS bucket
-- **Daily refresh**: Trigger manually or set up Cloud Scheduler (module is wired, schedule intentionally left empty)
+- **Delta ingestion**: Automatic on CSV file drop to the GCS staging bucket
+- **Daily refresh**: Trigger manually or configure Cloud Scheduler (module is wired, schedule intentionally left empty)
 - **Code changes**: Push to GitHub — Cloud Build validates on PR, applies on merge
 
 ### CI/CD
 
-| Event | Cloud Build trigger | What runs |
-|-------|-------------------|-----------|
+| Event | Trigger | What runs |
+|-------|---------|-----------|
 | PR to `main` | `cloudbuild-validate.yaml` | `terraform fmt -check`, `terraform validate`, `dataform compile` |
 | Merge to `main` | `cloudbuild-deploy.yaml` | `terraform apply` → triggers `daily-refresh-workflow` |
 
@@ -291,14 +325,14 @@ gcloud workflows run daily-refresh-workflow \
 
 ## Key Design Decisions
 
-**All tables, no views** — Every Dataform output is `type: "table"`. No views anywhere. Ensures consistent query performance and lineage tracking.
+**All tables, no views** — Every Dataform output is `type: "table"`. Ensures consistent query performance and lineage tracking.
 
-**Fire-and-forget customer AI** — Cloud Workflows has a 1800s synchronous HTTP timeout. The Cloud Run `/process` endpoint returns 202 immediately; the workflow polls `/status` every 30s. Eliminates any risk of timeout regardless of dataset size.
+**Fire-and-forget customer AI** — Cloud Workflows has a hard 1800s synchronous HTTP timeout. The Cloud Run `/process` endpoint returns 202 immediately; the workflow polls `/status` every 30s. Eliminates any timeout risk regardless of dataset size.
 
-**BQ ML for products, Cloud Run for customers** — Product AI (4 shards, BQ ML) is fast enough at <2 min. Customer AI at scale hit BQ ML's 6 RPS quota ceiling; Cloud Run async delivers 200 RPS sustained.
+**BQ ML for products, Cloud Run for customers** — Product AI (4 BQ ML shards) completes in under 2 minutes. Customer AI at scale hit BQ ML's 6 RPS quota ceiling; Cloud Run async delivers 200 RPS sustained — 33× faster.
 
 **WRITE_TRUNCATE for customer_ai_raw** — The Cloud Run load job atomically replaces the entire table each run. No stale data, no duplicates, no explicit DELETE needed.
 
-**`customer_ai_raw` is a temp table** — It exists only between Phase 2 (Cloud Run write) and Phase 3 (Dataform `customer_concierge` build). A `post_operations` DROP TABLE removes it after `customer_concierge` is successfully built.
+**`customer_ai_raw` is a temp table** — Exists only between Phase 2 (Cloud Run) and Phase 3 (Dataform). Dropped automatically via `post_operations` after `customer_concierge` is built.
 
 **Single config file** — `terraform/terraform.tfvars` is the only file a new deployment needs to change. Everything else is computed or defaulted.
