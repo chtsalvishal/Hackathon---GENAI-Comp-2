@@ -380,6 +380,12 @@ resource "google_project_iam_member" "cloud_run_sa_vertex_user" {
   member  = "serviceAccount:${google_service_account.cloud_run_customer_ai.email}"
 }
 
+resource "google_project_iam_member" "cloud_run_sa_bq_connection_user" {
+  project = var.project_id
+  role    = "roles/bigquery.connectionUser"
+  member  = "serviceAccount:${google_service_account.cloud_run_customer_ai.email}"
+}
+
 # ---------------------------------------------------------------------------
 # Outputs
 # ---------------------------------------------------------------------------
