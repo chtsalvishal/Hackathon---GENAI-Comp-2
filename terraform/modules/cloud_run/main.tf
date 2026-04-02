@@ -39,7 +39,7 @@ resource "google_cloud_run_v2_service" "customer_ai" {
       }
       env {
         name  = "CONCURRENCY"
-        value = "200"
+        value = "30"
       }
     }
 

@@ -1,13 +1,17 @@
 """
 Customer AI Processor — Cloud Run service.
 
-Fire-and-forget design: POST /process returns 202 immediately and starts a
-background thread. GET /status polls progress. The Cloud Workflow calls
-/process, then polls /status every 30 s until status == "done".
+Fire-and-forget: POST /process returns 202 immediately; background thread
+runs Gemini inference. GET /status polls progress every 30s from the workflow.
+
+Key design:
+  - Each thread creates its own GenerativeModel instance (thread-safe)
+  - CONCURRENCY=30 sustains throughput without bursting Gemini RPM quota
+  - WRITE_TRUNCATE load job atomically replaces customer_ai_raw each run
 
 Environment variables:
-  GOOGLE_CLOUD_PROJECT  — GCP project ID (set automatically by Cloud Run)
-  CONCURRENCY           — number of parallel Gemini requests (default: 200)
+  GOOGLE_CLOUD_PROJECT  — set automatically by Cloud Run
+  CONCURRENCY           — parallel Gemini threads (default: 30)
   LOCATION              — Vertex AI region (default: australia-southeast1)
 """
 
@@ -31,7 +35,7 @@ from vertexai.generative_models import GenerativeModel, GenerationConfig
 # ---------------------------------------------------------------------------
 PROJECT_ID  = os.environ.get("GOOGLE_CLOUD_PROJECT", "vishal-sandpit-474523")
 LOCATION    = os.environ.get("LOCATION", "australia-southeast1")
-CONCURRENCY = int(os.environ.get("CONCURRENCY", "200"))
+CONCURRENCY = int(os.environ.get("CONCURRENCY", "30"))
 MODEL_NAME  = "gemini-2.5-flash"
 
 SOURCE_TABLE = f"{PROJECT_ID}.gold.dim_customers_analyst"
@@ -53,15 +57,14 @@ log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Initialise Vertex AI once at module load
 vertexai.init(project=PROJECT_ID, location=LOCATION)
 
 # ---------------------------------------------------------------------------
-# Global job state (single-instance — max_instance_count = 1 in Terraform)
+# Global job state (single-instance — max_instance_count=1 in Terraform)
 # ---------------------------------------------------------------------------
-_job_lock = threading.Lock()
+_job_lock  = threading.Lock()
 _job_state: dict = {
-    "status":         "idle",   # idle | running | done | error
+    "status":         "idle",
     "rows_processed": 0,
     "success":        0,
     "errors":         0,
@@ -109,9 +112,15 @@ def _parse(raw_text: str) -> tuple[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Gemini call (synchronous — wrapped in thread executor for concurrency)
+# Gemini call — each call creates its own model instance (thread-safe)
 # ---------------------------------------------------------------------------
-def _call_gemini_sync(row: dict, model: GenerativeModel) -> dict:
+def _call_gemini_sync(row: dict) -> dict:
+    """
+    IMPORTANT: GenerativeModel is created per-call, not shared across threads.
+    Sharing a single instance across concurrent threads causes internal SDK
+    state corruption → all calls fail with exceptions → fallback values returned.
+    """
+    model  = GenerativeModel(MODEL_NAME)
     prompt = _build_prompt(row["customer_segment"], row["churn_risk"])
     try:
         response = model.generate_content(
@@ -124,8 +133,9 @@ def _call_gemini_sync(row: dict, model: GenerativeModel) -> dict:
     except Exception as exc:
         persona  = FALLBACK_PERSONA
         strategy = FALLBACK_STRATEGY
-        status   = str(exc)[:500]
-        log.warning("Gemini error for %s: %s", row["customer_id"], status)
+        # Include exception type so errors are diagnosable in customer_ai_raw
+        status   = f"{type(exc).__name__}: {str(exc)[:450]}"
+        log.warning("Gemini error for customer %s: %s", row["customer_id"], status)
 
     return {
         "customer_id":  row["customer_id"],
@@ -140,14 +150,13 @@ def _call_gemini_sync(row: dict, model: GenerativeModel) -> dict:
 # Async orchestration
 # ---------------------------------------------------------------------------
 async def _process_all(rows: list[dict]) -> list[dict]:
-    model     = GenerativeModel(MODEL_NAME)
     semaphore = asyncio.Semaphore(CONCURRENCY)
     loop      = asyncio.get_running_loop()
     executor  = ThreadPoolExecutor(max_workers=CONCURRENCY)
 
     async def _call(row: dict) -> dict:
         async with semaphore:
-            return await loop.run_in_executor(executor, _call_gemini_sync, row, model)
+            return await loop.run_in_executor(executor, _call_gemini_sync, row)
 
     results = await asyncio.gather(*[_call(row) for row in rows])
     executor.shutdown(wait=False)
@@ -172,11 +181,8 @@ def _read_customers(bq: bigquery.Client) -> list[dict]:
 
 
 def _write_results(bq: bigquery.Client, results: list[dict]) -> None:
-    """
-    Atomic WRITE_TRUNCATE load job — replaces the entire table each run.
-    Eliminates duplicates from previous daily runs without a prior DELETE.
-    """
-    ndjson = "\n".join(json.dumps(r) for r in results)
+    """Atomic WRITE_TRUNCATE — replaces the entire table, no duplicates."""
+    ndjson     = "\n".join(json.dumps(r) for r in results)
     job_config = bigquery.LoadJobConfig(
         write_disposition="WRITE_TRUNCATE",
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
@@ -206,20 +212,19 @@ def _run_job() -> None:
 
         if not rows:
             with _job_lock:
-                _job_state.update(
-                    status="done", rows_processed=0, message="no rows",
-                    finished_at=datetime.now(timezone.utc).isoformat(),
-                )
+                _job_state.update(status="done", rows_processed=0, message="no rows",
+                                  finished_at=datetime.now(timezone.utc).isoformat())
             return
 
-        results = asyncio.run(_process_all(rows))
-        log.info("Gemini inference complete — %d results", len(results))
-
-        _write_results(bq, results)
-
+        results       = asyncio.run(_process_all(rows))
         success_count = sum(1 for r in results if r["status"] == "")
         error_count   = len(results) - success_count
-        log.info("Written %d rows (%d errors) to %s", len(results), error_count, OUTPUT_TABLE)
+
+        log.info("Gemini complete — %d rows | %d success | %d errors",
+                 len(results), success_count, error_count)
+
+        _write_results(bq, results)
+        log.info("Written %d rows to %s", len(results), OUTPUT_TABLE)
 
         with _job_lock:
             _job_state.update(
@@ -235,7 +240,7 @@ def _run_job() -> None:
         with _job_lock:
             _job_state.update(
                 status="error",
-                message=str(exc)[:500],
+                message=f"{type(exc).__name__}: {str(exc)[:450]}",
                 finished_at=datetime.now(timezone.utc).isoformat(),
             )
 
@@ -250,9 +255,8 @@ def process():
             return jsonify({"status": "already_running"}), 409
         _reset_job()
 
-    thread = threading.Thread(target=_run_job, daemon=True)
-    thread.start()
-    log.info("Customer AI processor started (background thread)")
+    threading.Thread(target=_run_job, daemon=True).start()
+    log.info("Customer AI processor started (concurrency=%d)", CONCURRENCY)
     return jsonify({"status": "started"}), 202
 
 
@@ -260,7 +264,6 @@ def process():
 def status():
     with _job_lock:
         snapshot = dict(_job_state)
-
     if snapshot["status"] == "error":
         return jsonify(snapshot), 500
     if snapshot["status"] in ("idle", "running"):
@@ -270,10 +273,10 @@ def status():
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "healthy", "project": PROJECT_ID}), 200
+    return jsonify({"status": "healthy", "project": PROJECT_ID,
+                    "model": MODEL_NAME, "concurrency": CONCURRENCY}), 200
 
 
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)

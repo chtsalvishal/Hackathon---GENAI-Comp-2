@@ -1,3 +1,0 @@
-customer_id,first_name,last_name,email,phone,city,country,customer_tier,account_status,_delta_type,_batch_date
-SMOKE-TEST-001,Test,User,test.user@intelia.com.au,0400000001,Sydney,Australia,Gold,Active,INSERT,2026-03-24
-SMOKE-TEST-002,Delta,Pipeline,delta.pipeline@intelia.com.au,0400000002,Melbourne,Australia,Silver,Active,INSERT,2026-03-24
