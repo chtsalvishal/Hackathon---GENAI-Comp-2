@@ -86,7 +86,9 @@ Single-point config: `terraform/terraform.tfvars`. Module order in `terraform/ma
 
 ## Cloud Run service
 
-- `cloudrun/customer_ai/main.py` — Flask + vertexai SDK + asyncio, `CONCURRENCY=50`
+- `cloudrun/customer_ai/main.py` — Flask + BigQuery client only (no Vertex AI SDK)
+- Reads all customers, splits into `CHUNK_SIZE=1000` chunks, runs `ML.GENERATE_TEXT` per chunk via BQ ML
+- `CHUNK_PARALLEL=3` concurrent BQ ML jobs; each 1000-row chunk completes in seconds
 - SA: `cloud-run-customer-ai-sa@vishal-sandpit-474523.iam.gserviceaccount.com`
 - Only `workflows-sa` can invoke it (IAM enforced in `terraform/modules/cloud_run/main.tf`)
 - Writes to `ai.customer_ai_raw`; gunicorn timeout 1800s (Workflow 1800s max limit)

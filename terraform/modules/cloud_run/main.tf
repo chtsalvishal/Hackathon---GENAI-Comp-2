@@ -1,8 +1,8 @@
 # ---------------------------------------------------------------------------
 # Cloud Run — Customer AI Processor
-# Deploys the Python async Gemini service that replaces the 4 Dataform
-# customer_ai shard tables. Called by the daily-refresh Cloud Workflow
-# after the main pipeline completes and before the ai_aggregate step.
+# BQ ML chunked processor: splits customers into 1000-row chunks, runs
+# ML.GENERATE_TEXT per chunk via BigQuery. Called by the daily-refresh
+# Cloud Workflow after the main pipeline completes (before ai_aggregate).
 # ---------------------------------------------------------------------------
 
 resource "google_cloud_run_v2_service" "customer_ai" {
@@ -34,16 +34,12 @@ resource "google_cloud_run_v2_service" "customer_ai" {
         value = var.project_id
       }
       env {
-        name  = "LOCATION"
-        value = var.region
+        name  = "CHUNK_SIZE"
+        value = "1000"
       }
       env {
-        name  = "CONCURRENCY"
-        value = "100"
-      }
-      env {
-        name  = "GEMINI_RPM"
-        value = "90"
+        name  = "CHUNK_PARALLEL"
+        value = "3"
       }
     }
 

@@ -1,48 +1,41 @@
 """
 Customer AI Processor — Cloud Run service.
 
-Fire-and-forget: POST /process returns 202 immediately; background thread
-runs Gemini inference. GET /status polls progress every 30s from the workflow.
+BQ ML chunked approach: reads all customers, splits into chunks of CHUNK_SIZE,
+runs ML.GENERATE_TEXT per chunk via BigQuery (completes in seconds each),
+processes CHUNK_PARALLEL chunks concurrently.
 
-Key design:
-  - Each thread creates its own GenerativeModel instance (thread-safe)
-  - CONCURRENCY=100 with 90 RPM token bucket — saturates quota without retry storms
-  - WRITE_TRUNCATE load job atomically replaces customer_ai_raw each run
+Fire-and-forget: POST /process returns 202 immediately; background thread runs.
+GET /status polls progress every 30s from the workflow.
 
 Environment variables:
   GOOGLE_CLOUD_PROJECT  — set automatically by Cloud Run
-  CONCURRENCY           — parallel Gemini threads (default: 100)
-  GEMINI_RPM            — max requests per minute sent to Vertex AI (default: 90)
-  LOCATION              — Vertex AI region (default: australia-southeast1)
+  CHUNK_SIZE            — rows per BQ ML call (default: 1000)
+  CHUNK_PARALLEL        — concurrent BQ ML jobs (default: 3)
 """
 
-import asyncio
 import io
 import json
 import logging
 import os
 import re
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
-from aiolimiter import AsyncLimiter
 from flask import Flask, jsonify
 from google.cloud import bigquery
-import vertexai
-from vertexai.generative_models import GenerativeModel, GenerationConfig
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-PROJECT_ID  = os.environ.get("GOOGLE_CLOUD_PROJECT", "vishal-sandpit-474523")
-LOCATION    = os.environ.get("LOCATION", "australia-southeast1")
-CONCURRENCY = int(os.environ.get("CONCURRENCY", "100"))
-GEMINI_RPM  = int(os.environ.get("GEMINI_RPM", "90"))
-MODEL_NAME  = "gemini-2.5-flash"
+PROJECT_ID     = os.environ.get("GOOGLE_CLOUD_PROJECT", "vishal-sandpit-474523")
+CHUNK_SIZE     = int(os.environ.get("CHUNK_SIZE",     "1000"))
+CHUNK_PARALLEL = int(os.environ.get("CHUNK_PARALLEL", "3"))
 
 SOURCE_TABLE = f"{PROJECT_ID}.gold.dim_customers_analyst"
 OUTPUT_TABLE = f"{PROJECT_ID}.ai.customer_ai_raw"
+BQML_MODEL   = f"{PROJECT_ID}.ai.gemini_pro_model"
 
 OUTPUT_SCHEMA = [
     bigquery.SchemaField("customer_id",  "STRING"),
@@ -60,8 +53,6 @@ log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-vertexai.init(project=PROJECT_ID, location=LOCATION)
-
 # ---------------------------------------------------------------------------
 # Global job state (single-instance — max_instance_count=1 in Terraform)
 # ---------------------------------------------------------------------------
@@ -69,6 +60,8 @@ _job_lock  = threading.Lock()
 _job_state: dict = {
     "status":         "idle",
     "rows_processed": 0,
+    "chunks_done":    0,
+    "chunks_total":   0,
     "success":        0,
     "errors":         0,
     "message":        "",
@@ -80,24 +73,14 @@ _job_state: dict = {
 def _reset_job() -> None:
     global _job_state
     _job_state = {
-        "status": "idle", "rows_processed": 0,
-        "success": 0, "errors": 0, "message": "",
-        "started_at": None, "finished_at": None,
+        "status": "idle", "rows_processed": 0, "chunks_done": 0, "chunks_total": 0,
+        "success": 0, "errors": 0, "message": "", "started_at": None, "finished_at": None,
     }
 
 
 # ---------------------------------------------------------------------------
-# Prompt + parsing
+# Parsing — extract persona/strategy from BQ ML JSON result
 # ---------------------------------------------------------------------------
-def _build_prompt(segment: str, churn_risk: str) -> str:
-    return (
-        "Respond with ONLY a JSON object. No markdown, no code blocks.\n"
-        'Format: {"persona":"2-sentence customer profile",'
-        '"strategy":"one specific retention action"}\n'
-        f"Segment:{segment} Risk:{churn_risk}"
-    )
-
-
 def _parse(raw_text: str) -> tuple[str, str]:
     if not raw_text:
         return FALLBACK_PERSONA, FALLBACK_STRATEGY
@@ -115,77 +98,93 @@ def _parse(raw_text: str) -> tuple[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Gemini call — each call creates its own model instance (thread-safe)
-# ---------------------------------------------------------------------------
-def _call_gemini_sync(row: dict) -> dict:
-    """
-    IMPORTANT: GenerativeModel is created per-call, not shared across threads.
-    Sharing a single instance across concurrent threads causes internal SDK
-    state corruption → all calls fail with exceptions → fallback values returned.
-    """
-    model  = GenerativeModel(MODEL_NAME)
-    prompt = _build_prompt(row["customer_segment"], row["churn_risk"])
-    try:
-        response = model.generate_content(
-            prompt,
-            generation_config=GenerationConfig(temperature=0.1, max_output_tokens=150),
-        )
-        raw = response.text or ""
-        persona, strategy = _parse(raw)
-        status = ""
-    except Exception as exc:
-        persona  = FALLBACK_PERSONA
-        strategy = FALLBACK_STRATEGY
-        status   = f"{type(exc).__name__}: {str(exc)[:450]}"
-        log.warning("Gemini error for customer %s: %s", row["customer_id"], status)
-
-    return {
-        "customer_id":  row["customer_id"],
-        "persona":      persona,
-        "strategy":     strategy,
-        "status":       status,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-# ---------------------------------------------------------------------------
-# Async orchestration — rate-limited token bucket + concurrency semaphore
-# ---------------------------------------------------------------------------
-async def _process_all(rows: list[dict]) -> list[dict]:
-    # Token bucket: gates how many requests are sent per minute to Vertex AI.
-    # CONCURRENCY controls how many threads are active simultaneously.
-    # Together they allow high parallelism without triggering 429 quota errors.
-    rate_limiter = AsyncLimiter(max_rate=GEMINI_RPM, time_period=60)
-    semaphore    = asyncio.Semaphore(CONCURRENCY)
-    loop         = asyncio.get_running_loop()
-    executor     = ThreadPoolExecutor(max_workers=CONCURRENCY)
-
-    async def _call(row: dict) -> dict:
-        async with semaphore:
-            async with rate_limiter:
-                return await loop.run_in_executor(executor, _call_gemini_sync, row)
-
-    log.info("Processing %d rows | concurrency=%d | rpm_limit=%d", len(rows), CONCURRENCY, GEMINI_RPM)
-    results = await asyncio.gather(*[_call(row) for row in rows])
-    executor.shutdown(wait=False)
-    return list(results)
-
-
-# ---------------------------------------------------------------------------
 # BigQuery helpers
 # ---------------------------------------------------------------------------
-def _read_customers(bq: bigquery.Client) -> list[dict]:
+def _read_all_customers(bq: bigquery.Client) -> list[dict]:
     query = f"""
-        SELECT
-            customer_id,
-            COALESCE(customer_segment, 'Unknown') AS customer_segment,
-            COALESCE(churn_risk,       'Unknown') AS churn_risk
+        SELECT customer_id, customer_segment, churn_risk
         FROM `{SOURCE_TABLE}`
         WHERE order_count > 0
           AND customer_segment IS NOT NULL
           AND churn_risk       IS NOT NULL
+        ORDER BY customer_id
     """
     return [dict(row) for row in bq.query(query).result()]
+
+
+def _run_bqml_chunk(bq: bigquery.Client, chunk: list[dict], chunk_num: int) -> list[dict]:
+    """
+    Runs ML.GENERATE_TEXT on up to CHUNK_SIZE customers via a parameterised
+    BigQuery query. Each chunk completes in seconds — BQ ML handles its own
+    internal parallelism against the remote Gemini endpoint.
+    """
+    ids = [r["customer_id"] for r in chunk]
+
+    query = f"""
+        WITH base AS (
+          SELECT customer_id, customer_segment, churn_risk
+          FROM `{SOURCE_TABLE}`
+          WHERE customer_id IN UNNEST(@ids)
+            AND order_count > 0
+        ),
+        ai_results AS (
+          SELECT
+            customer_id,
+            ml_generate_text_llm_result,
+            ml_generate_text_status
+          FROM ML.GENERATE_TEXT(
+            MODEL `{BQML_MODEL}`,
+            (
+              SELECT
+                customer_id,
+                CONCAT(
+                  'Respond with ONLY a JSON object. No markdown, no code blocks.\\n',
+                  'Format: {{"persona":"2-sentence customer profile","strategy":"one specific retention action"}}\\n',
+                  'Segment:', customer_segment, ' Risk:', churn_risk
+                ) AS prompt
+              FROM base
+            ),
+            STRUCT(
+              0.1  AS temperature,
+              150  AS max_output_tokens,
+              TRUE AS flatten_json_output
+            )
+          )
+        )
+        SELECT b.customer_id, r.ml_generate_text_llm_result, r.ml_generate_text_status
+        FROM base b
+        JOIN ai_results r USING (customer_id)
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ArrayQueryParameter("ids", "STRING", ids)
+        ]
+    )
+
+    rows = list(bq.query(query, job_config=job_config).result())
+    log.info("Chunk %d/%d — %d rows returned from BQ ML", chunk_num + 1,
+             _job_state["chunks_total"], len(rows))
+
+    ts      = datetime.now(timezone.utc).isoformat()
+    results = []
+    for row in rows:
+        raw    = row["ml_generate_text_llm_result"] or ""
+        status = row["ml_generate_text_status"]     or ""
+        # BQ ML: empty status = success, non-empty = error message
+        if status:
+            persona, strategy = FALLBACK_PERSONA, FALLBACK_STRATEGY
+        else:
+            persona, strategy = _parse(raw)
+        results.append({
+            "customer_id":  row["customer_id"],
+            "persona":      persona,
+            "strategy":     strategy,
+            "status":       status,
+            "generated_at": ts,
+        })
+
+    return results
 
 
 def _write_results(bq: bigquery.Client, results: list[dict]) -> None:
@@ -215,29 +214,52 @@ def _run_job() -> None:
         _job_state["started_at"] = datetime.now(timezone.utc).isoformat()
 
     try:
-        rows = _read_customers(bq)
-        log.info("Loaded %d customers from dim_customers_analyst", len(rows))
+        all_customers = _read_all_customers(bq)
+        log.info("Loaded %d customers from dim_customers_analyst", len(all_customers))
 
-        if not rows:
+        if not all_customers:
             with _job_lock:
                 _job_state.update(status="done", rows_processed=0, message="no rows",
                                   finished_at=datetime.now(timezone.utc).isoformat())
             return
 
-        results       = asyncio.run(_process_all(rows))
-        success_count = sum(1 for r in results if r["status"] == "")
-        error_count   = len(results) - success_count
+        # Split into fixed-size chunks
+        chunks = [all_customers[i:i + CHUNK_SIZE]
+                  for i in range(0, len(all_customers), CHUNK_SIZE)]
 
-        log.info("Gemini complete — %d rows | %d success | %d errors",
-                 len(results), success_count, error_count)
+        with _job_lock:
+            _job_state["chunks_total"] = len(chunks)
 
-        _write_results(bq, results)
-        log.info("Written %d rows to %s", len(results), OUTPUT_TABLE)
+        log.info("%d chunks x %d rows | %d parallel BQ ML jobs",
+                 len(chunks), CHUNK_SIZE, CHUNK_PARALLEL)
+
+        all_results: list[dict] = []
+
+        with ThreadPoolExecutor(max_workers=CHUNK_PARALLEL) as executor:
+            futures = {
+                executor.submit(_run_bqml_chunk, bq, chunk, i): i
+                for i, chunk in enumerate(chunks)
+            }
+            for future in as_completed(futures):
+                chunk_results = future.result()
+                all_results.extend(chunk_results)
+                with _job_lock:
+                    _job_state["chunks_done"]    += 1
+                    _job_state["rows_processed"] += len(chunk_results)
+
+        success_count = sum(1 for r in all_results if r["status"] == "")
+        error_count   = len(all_results) - success_count
+
+        log.info("All chunks complete — %d rows | %d success | %d errors",
+                 len(all_results), success_count, error_count)
+
+        _write_results(bq, all_results)
+        log.info("Written %d rows to %s", len(all_results), OUTPUT_TABLE)
 
         with _job_lock:
             _job_state.update(
                 status="done",
-                rows_processed=len(results),
+                rows_processed=len(all_results),
                 success=success_count,
                 errors=error_count,
                 finished_at=datetime.now(timezone.utc).isoformat(),
@@ -264,7 +286,8 @@ def process():
         _reset_job()
 
     threading.Thread(target=_run_job, daemon=True).start()
-    log.info("Customer AI processor started (concurrency=%d, rpm=%d)", CONCURRENCY, GEMINI_RPM)
+    log.info("BQ ML chunked processor started (chunk_size=%d, parallel=%d)",
+             CHUNK_SIZE, CHUNK_PARALLEL)
     return jsonify({"status": "started"}), 202
 
 
@@ -282,8 +305,7 @@ def status():
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "project": PROJECT_ID,
-                    "model": MODEL_NAME, "concurrency": CONCURRENCY,
-                    "rpm_limit": GEMINI_RPM}), 200
+                    "chunk_size": CHUNK_SIZE, "chunk_parallel": CHUNK_PARALLEL}), 200
 
 
 if __name__ == "__main__":
