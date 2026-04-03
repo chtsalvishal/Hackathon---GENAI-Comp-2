@@ -336,52 +336,146 @@ Size: ~280 x 280 px, bottom-centre.
 
 ---
 
-## Step 7 — Page 3: "AI Retention Insights"
+## Step 7 — Page 3: "AI Retention Intelligence"
 
-Click **+** to add page 3. Name it `AI Retention Insights`.
+Click **+** to add page 3. Name it `AI Retention Intelligence`.
 
-> **Important:** This page uses a different data source: `ai.mart_executive_summary_enriched`.
->
-> To add the second data source: **Resource > Add a data source > BigQuery > My Projects > vishal-sandpit-474523 > ai > mart_executive_summary_enriched**.
+### Page Layout Map
 
-### Drop-down Filter Control — Churn Risk
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  AI Retention Intelligence — Powered by Gemini 2.5 Flash          [Header Bar]  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  [Churn Risk ▼]  [Segment ▼]  [LTV Band ▼]                    [Filter Bar]     │
+├───────────────────────┬───────────────────────┬────────────────────────────────┤
+│  Revenue at Risk      │  AI Coverage %        │  Avg Rev / At-Risk Customer    │
+│  (Scorecard)          │  (Scorecard)          │  (Scorecard)                   │
+├───────────────────────┴───────────────────────┴────────────────────────────────┤
+│  Segment × Churn Risk Heatmap (Pivot Table, 60%)  │  Strategy Donut (35%)      │
+├───────────────────────────────────────────────────┴────────────────────────────┤
+│  AI-Powered Customer Profiles — Action Required (Full-Width Table)             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 
-1. Insert > Drop-down list control.
-2. **Control field:** `churn_risk` (from the ai data source).
-3. Default values: `At Risk`, `Cooling` (multi-select).
-4. Place at top of page, full width.
+### Step 7.1 — Add Data Sources
 
-### Table — At-Risk Customers with Gemini Insights
+This page uses two data sources. Add both before building charts.
 
-Size: Full width, ~600 px tall.
+**Data Source A — `mart_executive_summary_enriched`**
 
-1. Insert > Table.
-2. **Data source:** `mart_executive_summary_enriched`.
-3. **Dimensions (add in order):**
-   - `customer_id`
-   - `customer_segment`
-   - `churn_risk`
-   - `country`
-   - `lifetime_value_band`
-   - `top_category`
-   - `gemini_insight`
-   - `ai_status`
-4. **Metrics (add in order):**
-   - `orders_this_month` — SUM
-   - `revenue_this_month` — SUM — format Currency AUD
-   - `orders_last_month` — SUM
-   - `revenue_last_month` — SUM — format Currency AUD
-5. Sort: `revenue_last_month` descending.
-6. Add a **Filter**: click the filter icon in chart properties:
-   - Condition: `churn_risk` IN `At Risk`, `Cooling`
-   - AND `ai_status` = `success`
+1. Click **Resource → Manage added data sources → Add a data source**.
+2. Select **BigQuery** → Project `vishal-sandpit-474523` → Dataset `ai` → Table `mart_executive_summary_enriched`.
+3. Click **Connect → Add to report**. Rename it `DS: AI Executive Summary`.
+
+**Data Source B — `customer_concierge`**
+
+1. Repeat above. Dataset `ai` → Table `customer_concierge`.
+2. Rename it `DS: Customer Concierge`.
+
+### Step 7.2 — Page Header Bar
+
+1. Insert → Rectangle. Position: X=0, Y=0. Size: **1280 × 50 px**. Fill: `#1A237E`. Border: none.
+2. Insert → Text: `AI Retention Intelligence — Powered by Gemini 2.5 Flash`. Font: Google Sans, 16pt, Bold, White. Position: X=24, Y=12.
+
+### Step 7.3 — Filter Bar
+
+1. Insert → Rectangle. Position: X=0, Y=50. Size: **1280 × 50 px**. Fill: `#F5F5F5`. Border: 1px `#E0E0E0`.
+
+**Filter Control 1 — Churn Risk** (X=16, Y=58, 240 × 32 px)
+1. Insert → Filter control. Data source: `DS: AI Executive Summary`. Control field: `churn_risk`.
+2. Default selection: `At Risk`, `Cooling`. Multi-select: ON.
+
+**Filter Control 2 — Segment** (X=272, Y=58, 220 × 32 px)
+1. Insert → Filter control. Control field: `customer_segment`. Default: All. Multi-select: ON.
+
+**Filter Control 3 — LTV Band** (X=508, Y=58, 220 × 32 px)
+1. Insert → Filter control. Control field: `lifetime_value_band`. Default: All.
+
+### Step 7.4 — Scorecard Row (Y=110–210)
+
+Three scorecards, each **300 × 100 px**, starting at X=100, spaced 40px apart.
+
+**Scorecard 1 — Revenue at Risk** (X=100, Y=110)
+
+1. Insert → Scorecard. Data source: `DS: AI Executive Summary`.
+2. Create calculated field:
+   - Name: `Revenue at Risk`
+   - Formula: `SUM(CASE WHEN churn_risk IN ('Cooling', 'At Risk') THEN revenue_last_month ELSE 0 END)`
+   - Type: Currency AUD. Save.
+3. Style: Google Sans 28pt Bold, colour `#EA4335`. Label: `Revenue at Risk`.
+4. Add text box below (X=100, Y=185): `Across Cooling + At Risk customers` — 10pt, grey italic.
+
+**Scorecard 2 — AI Coverage %** (X=440, Y=110)
+
+1. Insert → Scorecard. Data source: `DS: AI Executive Summary`.
+2. Create calculated field:
+   - Name: `AI Coverage %`
+   - Formula: `COUNT(CASE WHEN ai_status = 'success' THEN customer_id END) / COUNT(customer_id)`
+   - Type: Percent, 1 decimal. Save.
+3. Style: Google Sans 28pt Bold. Conditional colour: > 90% = `#34A853`, 80–90% = `#FBBC04`, < 80% = `#EA4335`.
+4. Label: `Customers with AI Insights`.
+
+**Scorecard 3 — Avg Revenue / At-Risk Customer** (X=780, Y=110)
+
+1. Insert → Scorecard. Data source: `DS: AI Executive Summary`.
+2. Create calculated field:
+   - Name: `Avg Rev / At-Risk Customer`
+   - Formula: `SUM(CASE WHEN churn_risk = 'At Risk' THEN revenue_last_month ELSE 0 END) / COUNT(CASE WHEN churn_risk = 'At Risk' THEN customer_id END)`
+   - Type: Currency AUD. Save.
+3. Style: Google Sans 28pt Bold, colour `#1A237E`. Label: `Avg Revenue / At-Risk Customer`.
+
+### Step 7.5 — Segment × Churn Risk Revenue Heatmap (Pivot Table)
+
+> Looker Studio has no native heatmap. Use a Pivot Table with conditional formatting to simulate one.
+
+1. Insert → **Pivot table**. Data source: `DS: AI Executive Summary`. Position: X=16, Y=220. Size: **620 × 280 px**.
+2. Row dimension: `customer_segment`. Column dimension: `churn_risk`.
+3. Metric 1: SUM `revenue_last_month` → rename `Revenue (Last Month)` → Currency AUD.
+4. Metric 2: COUNT `customer_id` → rename `Customers`.
+5. Add filter: `churn_risk` IN `At Risk, Cooling`.
+6. Row sort: Custom — drag order to Platinum, Gold, Silver, Bronze.
 7. Style tab:
-   - Rows per page: 50.
-   - Wrap text: on for `gemini_insight` column (set column width ~300 px).
    - Header: `#1A237E` background, white text.
-   - Conditional formatting on `churn_risk`:
-     - `At Risk` → background `#FFCCBC`
-     - `Cooling` → background `#FFF9C4`
+   - Conditional formatting on `Revenue (Last Month)`: Color scale, Min `#FFFFFF` → Max `#B71C1C` (dark red), apply to Background.
+
+### Step 7.6 — Gemini Strategy Type Donut
+
+1. Add title text box (X=660, Y=220): `What strategies is Gemini recommending?` — Google Sans 13pt Bold navy.
+2. Insert → **Pie chart**. Data source: `DS: Customer Concierge`. Position: X=656, Y=246. Size: **380 × 260 px**.
+3. Create calculated field:
+   - Name: `Strategy Category`
+   - Formula:
+     ```
+     CASE
+       WHEN REGEXP_MATCH(strategy, '(?i)offer|discount|voucher|promo') THEN 'Offer/Discount'
+       WHEN REGEXP_MATCH(strategy, '(?i)re-engage|re-activation|lapsed|win.back|winback') THEN 'Win-back'
+       WHEN REGEXP_MATCH(strategy, '(?i)loyal|reward|tier|vip|exclusive') THEN 'Loyalty Reward'
+       WHEN REGEXP_MATCH(strategy, '(?i)product|recommend|suggest|upsell|cross') THEN 'Product Rec'
+       ELSE 'Personalised Outreach'
+     END
+     ```
+   - Save.
+4. Dimension: `Strategy Category`. Metric: COUNT `customer_id`.
+5. Style tab: Donut (hole size 45%), Legend RIGHT, Percentage labels ON.
+6. Slice colours: Offer/Discount=`#4285F4`, Win-back=`#EA4335`, Loyalty Reward=`#34A853`, Product Rec=`#FBBC04`, Personalised Outreach=`#9E9E9E`.
+
+### Step 7.7 — AI Persona Spotlight Table
+
+1. Add title text box (X=16, Y=516): `AI-Powered Customer Profiles — Action Required` — Google Sans 14pt Bold navy.
+2. Insert → **Table**. Data source: `DS: AI Executive Summary`. Position: X=16, Y=540. Size: **1248 × 340 px**.
+3. Dimensions: `customer_id`, `customer_segment`, `churn_risk`, `lifetime_value_band`, `top_category`, `gemini_insight`.
+4. Metrics:
+   - SUM `revenue_this_month` → `Rev This Month` → Currency AUD.
+   - SUM `revenue_last_month` → `Rev Last Month` → Currency AUD.
+   - SUM `orders_this_month` → `Orders This Month`.
+   - Calculated metric: `Revenue Trend` = `revenue_this_month - revenue_last_month` → Currency AUD.
+5. Sort: `revenue_last_month` Descending.
+6. Filters: `churn_risk` IN `At Risk, Cooling` AND `ai_status` = `success`.
+7. Style tab:
+   - Rows per page: 25. Header: `#1A237E` navy, white text.
+   - Column widths: `gemini_insight` = **380px**, Wrap text ON, min row height 80px.
+   - Conditional formatting `churn_risk`: `At Risk` → background `#FFCCBC`, `Cooling` → `#FFF9C4`.
+   - Conditional formatting `Revenue Trend`: < 0 → text `#EA4335` red, > 0 → text `#34A853` green.
 
 ---
 
@@ -588,40 +682,84 @@ Size: ~560 x 300 px, below the brand chart.
 
 ---
 
-## Step 7 — Page 3: "AI Upsell Strategies"
+## Step 7 — Page 3: "AI Upsell Intelligence"
 
-Click **+** to add page 3. Name it `AI Upsell Strategies`.
+Click **+** to add page 3. Name it `AI Upsell Intelligence`.
 
-### Drop-down Filter — Upsell Status
+### Page Layout Map
 
-1. Insert > Drop-down list control.
-2. **Control field:** `upsell_status`.
-3. Default: `success`.
-4. Place top of page.
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  AI Upsell Intelligence — Powered by Gemini 2.5 Flash              [Header Bar] │
+├────────────────────────┬─────────────────────────────────┬──────────────────────┤
+│  Upsell Coverage %     │  Revenue: AI-Tagged Products    │  Avg Margin %        │
+├────────────────────────┴─────────────────────────────────┴──────────────────────┤
+│  Strategy Type Donut (40%)  │  Category × Upsell Type Heatmap (Pivot, 55%)     │
+├─────────────────────────────┴───────────────────────────────────────────────────┤
+│  Products with AI Upsell Strategies — Enriched Table (Full Width)              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 
-### Table — Products with Gemini Upsell Strategies
+### Step 7.1 — Page Header Bar
 
-Size: Full width, ~600 px tall.
+1. Insert → Rectangle. Position: X=0, Y=0. Size: **1280 × 50 px**. Fill: `#1A237E`. Border: none.
+2. Insert → Text: `AI Upsell Intelligence — Powered by Gemini 2.5 Flash`. Font: Google Sans, 16pt, Bold, White. Position: X=24, Y=12.
 
-1. Insert > Table.
-2. **Dimensions (6):**
-   - `product_name`
-   - `category`
-   - `sub_category`
-   - `brand`
-   - `gemini_upsell_strategy`
-   - `upsell_status`
-3. **Metrics (3):**
-   - `item_revenue` — SUM — format Currency AUD.
-   - `units_sold` — SUM.
-   - `margin_pct` — Average.
-4. Sort: `item_revenue` descending.
-5. Add filter: `upsell_status` = `success`.
-6. Rows per page: 50.
-7. Style tab:
-   - Wrap text: on for `gemini_upsell_strategy` (set min row height to 60px, column width ~380px).
-   - `upsell_status` column: conditional formatting — `success` → background `#C8E6C9` (light green).
-   - Header: `#1A237E`, white text.
+### Step 7.2 — Scorecard Row (Y=60–160)
+
+Three scorecards, **300 × 100 px** each, starting at X=100, spaced 40px apart.
+
+**Scorecard 1 — Upsell Coverage %** (X=100, Y=60)
+- Calculated field: `COUNT(CASE WHEN upsell_status = 'success' THEN product_id END) / COUNT(product_id)` → Percent, 1 decimal.
+- Label: `Products with AI Upsell`. Style: `#34A853` green.
+
+**Scorecard 2 — Revenue from AI-Tagged Products** (X=440, Y=60)
+- Calculated field: `SUM(CASE WHEN upsell_status = 'success' THEN item_revenue ELSE 0 END)` → Currency AUD.
+- Label: `Revenue from AI-Tagged Products`. Style: `#1A237E` navy.
+
+**Scorecard 3 — Avg Margin on AI Products** (X=780, Y=60)
+- Calculated field: `AVG(CASE WHEN upsell_status = 'success' THEN margin_pct END)` → Percent, 1 decimal.
+- Label: `Avg Margin % (AI Products)`. Style: `#34A853` green.
+
+### Step 7.3 — Upsell Strategy Type Donut
+
+1. Add title text box (X=16, Y=175): `How is Gemini structuring upsell recommendations?` — Google Sans 13pt Bold navy.
+2. Insert → **Pie chart**. Data source: `DS: CPO Dashboard`. Position: X=16, Y=200. Size: **440 × 280 px**.
+3. Create calculated field:
+   - Name: `Upsell Type`
+   - Formula:
+     ```
+     CASE
+       WHEN REGEXP_MATCH(gemini_upsell_strategy, '(?i)bundle|pair|combin') THEN 'Bundle'
+       WHEN REGEXP_MATCH(gemini_upsell_strategy, '(?i)premium|pro|deluxe|upgrade') THEN 'Premium Upgrade'
+       WHEN REGEXP_MATCH(gemini_upsell_strategy, '(?i)accessory|add.on|complement') THEN 'Accessory Add-on'
+       WHEN REGEXP_MATCH(gemini_upsell_strategy, '(?i)subscription|plan|renew') THEN 'Subscription'
+       ELSE 'Cross-Category'
+     END
+     ```
+   - Save.
+4. Dimension: `Upsell Type`. Metric: COUNT `product_id`. Filter: `upsell_status` = `success`.
+5. Style: Donut (45% hole), Legend RIGHT, Percentage labels ON.
+6. Slice colours: Bundle=`#4285F4`, Premium Upgrade=`#EA4335`, Accessory Add-on=`#34A853`, Subscription=`#FBBC04`, Cross-Category=`#9E9E9E`.
+
+### Step 7.4 — Category × Upsell Type Pivot (Heatmap)
+
+1. Insert → **Pivot table**. Position: X=476, Y=200. Size: **788 × 280 px**.
+2. Row dimension: `category`. Column dimension: `Upsell Type` (calculated field from Step 7.3).
+3. Metric: COUNT `product_id` → rename `Products`. Filter: `upsell_status` = `success`.
+4. Style: Header `#1A237E` navy. Conditional formatting on `Products`: Color scale White → `#1565C0` dark blue, apply to Background.
+
+### Step 7.5 — Enriched Product Upsell Table
+
+1. Add title text box (X=16, Y=496): `Products with AI Upsell Strategies` — Google Sans 14pt Bold navy.
+2. Insert → **Table**. Position: X=16, Y=520. Size: **1248 × 360 px**.
+3. Dimensions: `product_name`, `category`, `sub_category`, `brand`, `gemini_upsell_strategy`, `upsell_status`.
+4. Metrics: SUM `item_revenue` → Currency AUD, SUM `units_sold`, AVG `margin_pct` → Percent 1dp.
+5. Sort: `item_revenue` Descending. Filter: `upsell_status` = `success`. Rows per page: 50.
+6. Style tab:
+   - Header: `#1A237E` navy, white text.
+   - `gemini_upsell_strategy` column: **380px wide**, Wrap text ON, min row height 60px.
+   - Conditional formatting on `margin_pct`: Color scale White → `#34A853` green, apply to Background.
 
 ---
 
@@ -927,4 +1065,196 @@ COUNTIF(status = 'FAILED')
 
 ---
 
-*Build guide generated 2026-03-25. Source: dashboards.yaml + live BQ verification + screenshot analysis (1.png, 2.png).*
+---
+
+---
+
+# CONVERSATIONAL ANALYTICS BOT — Setup Guide
+
+Three options for adding a natural-language query interface to these dashboards. **Option A is recommended** — zero infrastructure, works today.
+
+---
+
+## Option A: BigQuery Data Agent (Recommended)
+
+A Gemini-powered conversational interface built directly into BigQuery Studio. No additional infrastructure required.
+
+### A.1 — Enable
+
+1. Open [console.cloud.google.com](https://console.cloud.google.com). Confirm project = `vishal-sandpit-474523`.
+2. Navigate to **BigQuery → BigQuery Studio**.
+3. Click the **Gemini sparkle icon** (top-right toolbar) or look for the **"Ask Gemini"** panel on the right side.
+4. If prompted, click **Enable Gemini for Google Cloud API** → Enable.
+5. If Gemini is disabled at the org level: **IAM & Admin → Organization Policies** → confirm `constraints/gcp.disableGemini` is not TRUE. Contact your org admin if needed.
+
+### A.2 — Connect to Project Datasets
+
+The agent automatically accesses tables the authenticated user can read. Verify in the **Explorer** panel that `gold` and `ai` datasets are visible under `vishal-sandpit-474523`. If not:
+1. Click **+ Add** in Explorer → pin `vishal-sandpit-474523`.
+2. Grant viewer access: **BigQuery → Datasets → [dataset] → Sharing → Permissions** → add user with `BigQuery Data Viewer`.
+
+### A.3 — Add Table Descriptions (Improves Answer Quality)
+
+Open each table in BigQuery Studio → click the description pencil icon → paste:
+
+**`gold.rpt_cco_dashboard`:**
+```
+Order-grain customer churn and revenue table. Each row = one order.
+Fields: customer_id, customer_segment (Bronze/Silver/Gold/Platinum),
+churn_risk (Active/Cooling/At Risk/Churned), lifetime_value_band,
+order_revenue (AUD), order_date, country (ISO 2-letter), customer_type.
+Use for revenue analysis, churn distribution, segment breakdowns.
+```
+
+**`ai.mart_executive_summary_enriched`:**
+```
+Customer-grain AI enrichment. One row per customer. Contains
+gemini_insight (Gemini-generated text), ai_status ('success' or error),
+revenue_this_month and revenue_last_month, churn_risk, customer_segment,
+top_category, orders_this_month/last_month. Use for AI retention analysis.
+```
+
+**`ai.customer_concierge`:**
+```
+Customer-grain Gemini persona and strategy. One row per customer.
+Fields: persona (customer archetype), strategy (recommended action),
+generated_at, generation_status. Use for personalised strategy lookup.
+```
+
+**`gold.rpt_cpo_dashboard`:**
+```
+Order-item-grain product performance. One row per order line.
+Fields: product_name, category, sub_category, brand, units_sold,
+unit_price, item_revenue (AUD), margin_pct (decimal: 0.35 = 35%),
+gemini_upsell_strategy (Gemini text), upsell_status.
+```
+
+### A.4 — Test Questions
+
+Paste each into the Gemini chat panel in BigQuery Studio:
+
+1. `How many customers are At Risk or Cooling, broken down by customer_segment?`
+2. `What is total revenue_last_month for Cooling and At Risk customers in mart_executive_summary_enriched?`
+3. `Show top 5 Platinum customers at risk by revenue_last_month with their gemini_insight.`
+4. `What percentage of customers have ai_status = 'success'?`
+5. `Which category has the highest avg margin_pct in rpt_cpo_dashboard?`
+6. `Show top 10 products by item_revenue where upsell_status is success with their gemini_upsell_strategy.`
+
+### A.5 — Share with Dashboard Users
+
+1. Grant users `roles/bigquery.user` on project `vishal-sandpit-474523` (**IAM & Admin → IAM → Grant Access**).
+2. Share this URL: `https://console.cloud.google.com/bigquery?project=vishal-sandpit-474523`
+3. Instruct users: open URL → look for the Gemini sparkle icon in BigQuery Studio toolbar.
+
+---
+
+## Option B: Looker Studio Gemini Integration (Built-in, No Setup)
+
+### B.1 — Enable
+
+1. Open your CCO or CPO report in **Edit mode**.
+2. Click **File → Report settings** → scroll to **Gemini** → toggle **"Enable Gemini features"** ON → Save.
+3. Switch to **View mode**. An **"Ask a question"** input bar appears at the top of each page.
+
+> If the toggle is not visible, your Google Workspace admin must enable **Gemini for Google Workspace** for your domain.
+
+### B.2 — How It Works
+
+- Viewers type a natural-language question. Gemini queries the **data source on the current page** and returns a temporary chart.
+- Click **"Add to report"** on any result to pin it permanently (requires Edit mode).
+
+### B.3 — Recommended Setup
+
+Enable on **CCO Page 3 (AI Retention Intelligence)** first — `mart_executive_summary_enriched` has the richest field set (churn_risk, segment, revenue, gemini_insight) and answers the most common executive questions.
+
+### B.4 — Limitations
+
+| Limitation | Detail |
+|---|---|
+| Page-scoped only | Cannot query data from other pages or dashboards |
+| No cross-page context | No awareness of other pages when answering |
+| No report-level calculated fields | Cannot use your custom `Revenue at Risk` or `Strategy Category` fields |
+| Text field answers may be truncated | `gemini_insight` / `strategy` fields may not render fully in chart form |
+
+### B.5 — Sample Prompts (on CCO Page 3)
+
+- `How many At Risk customers are in each segment?`
+- `What is total revenue_last_month for Platinum customers where ai_status is success?`
+- `Show average revenue_this_month by customer_segment as a bar chart`
+- `Which top_category has the most At Risk customers?`
+- `Compare orders_this_month vs orders_last_month by churn_risk`
+
+---
+
+## Option C: Vertex AI Agent Builder (Advanced — Full Custom Bot)
+
+A fully hosted conversational agent grounded in your BigQuery data. Requires GCP configuration. Embedding in Looker Studio requires **Looker Studio Pro**.
+
+### C.1 — Create Data Stores
+
+1. GCP Console → **Vertex AI → Agent Builder** → **Create Data Store**.
+2. Source: **BigQuery**. Add each table separately:
+   - `vishal-sandpit-474523.gold.rpt_cco_dashboard`
+   - `vishal-sandpit-474523.ai.mart_executive_summary_enriched`
+   - `vishal-sandpit-474523.ai.customer_concierge`
+   - `vishal-sandpit-474523.gold.rpt_cpo_dashboard`
+3. For each: paste the table description from Option A, Step A.3. Set sync: **Daily**.
+4. Group all four under one Data Store named `intelia-biz-in-a-box`.
+
+### C.2 — Deploy Agent
+
+1. **Agent Builder → Create App** → type: **Search and conversation**. Name: `Intelia Analytics Assistant`. Region: `australia-southeast1`.
+2. Select `intelia-biz-in-a-box` as the data store.
+3. In the **Agent** tab → **System instructions**, paste:
+   ```
+   You are an analytics assistant for Intelia Business-in-a-Box.
+   Revenue is always in AUD. When asked about "at risk" customers, include
+   both 'Cooling' and 'At Risk' churn_risk values. margin_pct is a decimal
+   (0.35 = 35%). upsell_status and ai_status = 'success' means Gemini
+   processed that record successfully.
+   ```
+4. Click **Preview** to test. Copy the **Public URL** from the Integration tab.
+
+### C.3 — Embed in Looker Studio (Pro Only)
+
+1. Edit mode → **Insert → URL Embed**. Paste the agent URL.
+2. Size: **400 × 500 px**, positioned right side of any dashboard page.
+3. Add text label above: `Ask Gemini About This Data` — Google Sans 13pt Bold navy.
+
+**Without Pro licence:** Add the agent URL as a hyperlink text box instead — `Open AI Analytics Assistant →` in `#4285F4` blue.
+
+---
+
+## Pre-Built Question Library
+
+Use these to test your bot and share as a "starter pack" with executives.
+
+### CCO — Retention and Revenue
+
+1. `How many customers are At Risk or Cooling, and what revenue do they represent from last month?`
+2. `Break down At Risk customers by segment — Platinum, Gold, Silver, Bronze.`
+3. `Which segment has the highest average revenue among At Risk customers?`
+4. `What percentage of customers have a successful Gemini AI insight?`
+5. `Show the top 5 Platinum customers at risk by revenue_last_month with their gemini_insight.`
+
+### CPO — Product and Upsell
+
+6. `What percentage of products have a successful AI upsell strategy?`
+7. `Which categories have the most AI upsell strategies assigned?`
+8. `What is avg margin_pct for products where upsell_status is success?`
+9. `Which brand has the highest item_revenue among AI-tagged products?`
+10. `Top 10 products by item_revenue with a Gemini upsell strategy and their strategy text.`
+
+### CTO / Data Quality
+
+11. `How many customers in mart_executive_summary_enriched have ai_status not equal to success?`
+12. `What is the most recent generated_at in customer_concierge?`
+13. `How many products have upsell_status = success vs all other statuses?`
+14. `Are there customer_ids in mart_executive_summary_enriched that do not appear in customer_concierge?`
+15. `What is the distribution of generation_status values in customer_concierge?`
+
+> **Tip**: Be specific with field names (say `revenue_last_month` not "revenue") and always specify the segment or time period. The more precise the question, the more accurate the result.
+
+---
+
+*Build guide updated 2026-04-03. AI pages and Conversational Bot section added.*

@@ -1,625 +1,607 @@
 # Data Intelligence Report
-**E-Commerce Data Warehouse — Executive Intelligence Briefing**
-**Generated:** 2026-03-25
-**Data Coverage:** January 2022 – December 2024 (24-month reporting window for dashboards)
-**BQ Project:** vishal-sandpit-474523
+**Intelia Business-in-a-Box | Powered by BigQuery + Gemini AI**
+*Reporting Period: 24 months | GCP Project: vishal-sandpit-474523 | Region: australia-southeast1*
 
 ---
 
-## How to Read This Report
+## Executive Summary
 
-Each finding includes:
-- **Data:** The raw numbers from BigQuery
-- **Business Interpretation:** What this means for strategy
-- **Recommended Dashboard Chart/Metric:** Looker Studio implementation guidance
-- **Conversation Bot Q&A:** Suggested agent prompt/response pair
+**3 Things to Act on This Week**
+
+**1. CCO — Arrest the Churn Before $15.8M Walks Out the Door**
+Revenue at Risk from Cooling and At-Risk customers stands at approximately $15.8M. The most urgent cohort is 366 Platinum customers with an average order value of $1,413 — the highest-value segment showing churn signals. Gemini AI has generated personalised retention strategies for each customer. The CCO should open the AI Retention Intelligence page (Page 3) this week, filter to Platinum + At Risk, and brief the CRM team on executing Win-back and Loyalty Reward campaigns before end of quarter. Simultaneously, the new-customer acquisition decline of 27% from October to December 2024 (430 to 306 new customers) requires an urgent acquisition pipeline review.
+
+**2. CPO — Activate Cross-Sell on 12,052 Single-Category Customers**
+Electronics delivers $153M at a 49.8% margin — the undisputed Star category. But 12,052 customers (15.4% of the base) have purchased from only one of eight available categories, representing the single largest untapped revenue pool. The AI Upsell page surfaces Gemini-generated Bundle and Cross-Category recommendations for each product. Additionally, the CrystalBit Pro Cameras 102 carries a 64.8% margin at $936 per unit but only 240 units sold — a hidden gem that warrants immediate promotional focus.
+
+**3. CTO — Validate AI Coverage and Monitor Pipeline Costs**
+The BQ ML pipeline using gemini-2.5-flash runs across four product shards and feeds the Cloud Run customer AI processor. The generation_status success rate should be held above 95%. Any rows where ai_status returns an error string on customer_concierge must be triaged before Phase 3 aggregation runs. CTO should review the Pipeline Overview dashboard (Page 1) weekly and confirm that row merge counts and run durations remain within baseline tolerances.
 
 ---
 
-# PART 1 — CCO INTELLIGENCE (Chief Customer Officer)
+## PART 1 — CCO INTELLIGENCE
 
 ---
 
-## CCO-1: Revenue Concentration — Top 10% of Customers by Lifetime Value
+### CCO-1: Revenue Concentration
 
-### Data
+> Dashboard reference: CCO Page 1, Revenue Overview
+
+**Data**
+
+Total revenue over the 24-month reporting period is $269,321,897. The top 10% of customers by lifetime value account for 41.1% of total revenue, equivalent to approximately $111M. The base comprises 79,574 customers in total: 2,556 new customers (average 1.01 orders) and 77,018 returning customers (average 4.32 orders).
 
 | Metric | Value |
 |---|---|
-| Total Revenue (24-month window) | $269,321,897 |
-| Revenue from Top 10% LTV Customers | $110,699,010 |
-| Top 10% Revenue Share | **41.1%** |
+| Total Revenue (24 months) | $269,321,897 |
+| Top 10% LTV Revenue Share | 41.1% (~$111M) |
+| Total Customers | 79,574 |
+| New Customers | 2,556 |
+| Returning Customers | 77,018 |
+| New Customer Avg Orders | 1.01 |
+| Returning Customer Avg Orders | 4.32 |
 
-### Business Interpretation
+**Business Interpretation**
 
-The top 10% of customers by lifetime value generate 41.1% of total revenue — **well within the healthy 40–50% industry benchmark** for e-commerce. This confirms the customer base has a healthy concentration without dangerous over-reliance on any single cohort. The Platinum segment (27,136 active customers) drives the lion's share of this concentration. The Platinum segment (27,136 active order rows, $197.8M revenue) represents the real concentration zone and needs to be cross-referenced against the lifetime_value_band field. **Immediate action:** Focus retention investment on Platinum-Active customers (27,136 customers, $197M revenue). The At Risk cohort within this segment (366 customers, ~$0.73M recent revenue) is the highest-value churn risk to address.
+Revenue is heavily concentrated in a small fraction of the customer base. A 41.1% revenue dependency on the top 10% creates meaningful retention risk: losing even a portion of that cohort would have outsized financial impact. The returning customer base is the true revenue engine — their 4.32-order average versus the 1.01 of new customers illustrates that converting a new customer to a second purchase is the single most value-generating CRM action available.
 
-### Recommended Dashboard Chart
+**Recommended Dashboard Chart**
 
-- **Chart type:** Single Value Scorecard + Donut Chart
-- **Metric:** `top10_pct_of_total` as primary KPI, donut showing Top 10% vs Rest of Base
-- **Comparison:** Benchmark to industry standard (typically 40–60%), flag as Red/Amber/Green
-- **Filter:** lifetime_value_band dimension slicer
+CCO Page 1: Revenue Overview — Total Revenue and Customers scorecards (top of page), paired with the LTV Donut chart on CCO Page 2: Customer Breakdown.
 
-### Conversation Bot Q&A
+**Conversation Bot Q&A**
 
-**Q:** "What percentage of our revenue comes from our most valuable customers?"
-**A:** "Our top 10% of customers generate 41.1% of total revenue — $111M out of $269M. That's right in line with the healthy 40–50% industry benchmark, so our customer base has a good balance of concentration and resilience. I'd recommend a deeper look at your Platinum segment, which alone drove $197.8M in active order revenue."
-
----
-
-## CCO-2: Segment Trend — Monthly New Customer Acquisition by Segment
-
-### Data (Last 6 Months)
-
-| Year-Month | Bronze | Silver | Gold | Platinum | Total New |
-|---|---|---|---|---|---|
-| 2024-12 | 197 | 105 | 4 | — | 306 |
-| 2024-11 | 266 | 121 | 10 | — | 397 |
-| 2024-10 | 253 | 162 | 14 | 1 | 430 |
-| 2024-09 | 130 | 111 | 9 | — | 250 |
-| 2024-08 | 159 | 111 | 9 | 1 | 280 |
-| 2024-07 | 82 | 64 | 3 | — | 149 |
-| 2024-06 | 75 | 67 | 10 | 2 | 154 |
-| 2024-05 | 118 | 113 | 15 | 1 | 247 |
-| 2024-04 | 144 | 128 | 14 | 1 | 287 |
-| 2024-03 | 26 | 25 | 4 | 1 | 56 |
-
-### Business Interpretation
-
-New customer acquisition peaked in **October 2024 (430 new customers)** and has been declining through December (306). The October–November peak may correlate with a seasonal campaign (pre-holiday) or promotional event. December's drop to 306 is a 27% decline from October's peak — this is concerning given December is typically a high-acquisition month for e-commerce.
-
-**Segment skew is heavily Bronze-weighted:** Bronze accounts for ~62–67% of all new customers every month. New Gold acquisition is negligible (3–15 per month) and Platinum is near-zero (0–2). This is expected — new customers rarely start at high-value segments — but the **Bronze-to-Silver conversion pipeline** is the critical metric to watch. With ~60% of new customers entering at Bronze, the CCO needs to know what percentage of Bronze customers from 6–12 months ago have since upgraded to Silver or Gold.
-
-**No Churned customer_type appears in new acquisitions** — as expected, confirming the customer_type field correctly tracks first-time buyers.
-
-### Recommended Dashboard Chart
-
-- **Chart type:** Stacked Bar Chart (monthly x-axis, segment colour bands)
-- **Dimensions:** year_month (x-axis), customer_segment (colour), COUNT(DISTINCT customer_id)
-- **Filter:** customer_type = "New"
-- **Overlay:** MoM % change as a line series
-- **Alert:** Flag if total new customers drops >15% MoM
-
-### Conversation Bot Q&A
-
-**Q:** "How many new customers did we acquire last month and what segments did they fall into?"
-**A:** "In December 2024 we acquired 306 new customers: 197 Bronze (64%), 105 Silver (34%), and 4 Gold (1%). This is down from 397 in November — a 23% month-on-month decline. The good news is that 34% of new customers are entering at Silver tier, suggesting some are already high-value. The concern is the overall acquisition slowdown. Would you like me to break this down by country or compare against the same period last year?"
+*Q: What percentage of revenue comes from our top customers?*
+A: The top 10% of customers by lifetime value generate $111M, which is 41.1% of total 24-month revenue of $269.3M. These ~7,957 customers are your highest-priority retention cohort. Would you like a breakdown by segment?
 
 ---
 
-## CCO-3: Churn-Revenue Matrix — Segment × Churn Risk
+### CCO-2: Segment Trend
 
-### Data
+> Dashboard reference: CCO Page 2, Customer Breakdown
 
-| Segment | Churn Risk | Customers | Total Revenue | Avg Order Value |
-|---|---|---|---|---|
-| **Platinum** | Active | 27,136 | $197,823,266 | $853.86 |
-| **Platinum** | Cooling | 909 | $2,517,249 | $1,245.55 |
-| **Platinum** | At Risk | 366 | $734,938 | $1,413.34 |
-| **Gold** | Active | 14,208 | $33,241,188 | $786.31 |
-| **Gold** | Cooling | 1,993 | $3,604,657 | $1,032.26 |
-| **Gold** | At Risk | 1,087 | $1,626,773 | $1,215.82 |
-| **Silver** | Active | 18,343 | $21,081,214 | $589.04 |
-| **Silver** | Cooling | 4,324 | $4,128,361 | $699.96 |
-| **Silver** | At Risk | 3,094 | $2,556,424 | $738.42 |
-| **Bronze** | Active | 4,420 | $1,337,008 | $225.01 |
-| **Bronze** | Cooling | 1,352 | $376,066 | $245.63 |
-| **Bronze** | At Risk | 1,093 | $294,753 | $257.43 |
+**Data**
 
-**Note:** No "Churned" churn_risk rows appear in rpt_cco_dashboard order data — Churned customers have no recent orders contributing to revenue, which is behaviourally correct.
+Customer segments are defined as Platinum, Gold, Silver, and Bronze based on lifetime value and order frequency. The segment stacked bar chart on Page 2 shows the composition and revenue contribution of each segment over time.
 
-### Business Interpretation
+| Segment | Customers At Risk | Avg Order Value |
+|---|---|---|
+| Platinum | 366 | $1,413 |
+| Gold | 1,087 | $1,216 |
+| Silver | 3,094 | $738 |
 
-**The highest-urgency cell is Platinum × At Risk (366 customers, $1,413 avg order value).** These are your highest-spending customers showing disengagement signals. Each Platinum customer lost represents approximately $1,413 per order cycle — and historically, Platinum customers place multiple orders per year.
+**Business Interpretation**
 
-**Counterintuitive insight:** Cooling and At Risk customers show *higher* average order values than Active customers within the same segment (Platinum: $1,413 At Risk vs $854 Active; Gold: $1,216 At Risk vs $786 Active). This suggests that customers who spend more per order shop less frequently — and when engagement starts to drop, they've already made their high-value purchases. These customers respond well to targeted win-back campaigns with personalised product recommendations based on their purchase history.
+Platinum and Gold customers carry the highest average order values and therefore represent disproportionate revenue risk when churn signals emerge. The segment stacked bar provides a longitudinal view of whether the high-value tiers are growing or contracting as a share of the customer base. A shrinking Platinum tier alongside a rising Bronze tier would signal downward segment migration — a leading indicator of future revenue compression.
 
-**Revenue at risk (Cooling + At Risk):**
-- Platinum: $3.25M
-- Gold: $5.23M
-- Silver: $6.68M
-- Bronze: $0.67M
-- **Total at-risk revenue: ~$15.8M**
+**Recommended Dashboard Chart**
 
-### Recommended Dashboard Chart
+CCO Page 2: Customer Breakdown — Segment Stacked Bar chart (segment composition over time), paired with the Churn Risk Bar chart on the same page.
 
-- **Chart type:** Heatmap / Pivot Table with conditional colour formatting
-- **Rows:** customer_segment (Platinum → Bronze top-to-bottom)
-- **Columns:** churn_risk (Active | Cooling | At Risk | Churned)
-- **Values:** total_revenue (primary), customer_count (secondary)
-- **Colour scale:** Revenue intensity (dark = high revenue at risk)
-- **Alert scorecard:** "Revenue at Risk" = sum of Cooling + At Risk revenue across all segments
+**Conversation Bot Q&A**
 
-### Conversation Bot Q&A
-
-**Q:** "Which customer segments have the most revenue at risk from churn?"
-**A:** "Right now, Silver is your biggest churn-risk revenue exposure: 7,418 Silver customers (Cooling + At Risk) represent $6.7M in revenue. Gold is close behind at $5.2M across 3,080 customers. Most alarmingly, 366 Platinum customers are flagged At Risk — they have the highest average order value of any group at $1,413 per order. I'd prioritise a Platinum win-back campaign immediately, followed by a Silver retention programme. Together these segments represent approximately $15.8M in revenue that is in active jeopardy."
+*Q: How many Platinum customers are showing churn risk right now?*
+A: There are 366 Platinum customers currently classified as At Risk or Cooling, with an average order value of $1,413. This makes them your single highest-priority retention cohort. Gemini has generated personalised strategies for each — would you like to see the top 10 by revenue exposure?
 
 ---
 
-## CCO-4: Country MoM Revenue Growth (Nov–Dec 2024)
+### CCO-3: Churn-Revenue Matrix
 
-### Data
+> Dashboard reference: CCO Page 3, AI Retention Intelligence — Segment x Risk Revenue Heatmap
 
-| Country | Nov 2024 Revenue | Dec 2024 Revenue | MoM Growth |
+**Data**
+
+The churn-revenue matrix intersects customer segment (Platinum, Gold, Silver, Bronze) with churn risk classification (Active, Cooling, At Risk). Revenue at Risk — defined as the combined revenue attributable to Cooling and At-Risk customers — totals approximately $15.8M.
+
+| Segment | At Risk Customers | Avg Order Value | Est. Revenue Exposure |
 |---|---|---|---|
-| US | $23,479,651 | $23,738,516 | **+1.10%** |
-| GB | $7,566,574 | $7,607,371 | **+0.54%** |
-| CA | $5,347,243 | $5,324,033 | -0.43% |
-| AU | $4,263,031 | $4,018,278 | **-5.74%** |
-| DE | $3,943,695 | $3,908,429 | -0.89% |
-| IN | $2,950,376 | $2,749,996 | **-6.79%** |
-| FR | $2,646,423 | $2,716,738 | **+2.66%** |
-| BR | $1,544,257 | $1,612,609 | **+4.43%** |
-| MX | $1,006,668 | $1,074,680 | **+6.76%** |
+| Platinum | 366 | $1,413 | Highest |
+| Gold | 1,087 | $1,216 | High |
+| Silver | 3,094 | $738 | Moderate |
 
-### Business Interpretation
+**Business Interpretation**
 
-**Growth markets (Dec vs Nov):** MX (+6.76%), BR (+4.43%), FR (+2.66%), US (+1.10%), GB (+0.54%). Mexico and Brazil are emerging as the fastest-growing markets, suggesting strong organic momentum or effective localisation — these warrant increased investment in marketing and localised product catalogues.
+The heatmap on Page 3 makes the matrix immediately scannable: dark cells at the Platinum × At Risk intersection confirm where intervention must happen first. Gold At Risk (1,087 customers) is the second priority — the volume is nearly 3x Platinum but at a slightly lower order value. Silver At Risk (3,094 customers) offers the largest absolute count but requires more scalable, lower-touch tactics given the $738 AOV. A blanket campaign across all 4,547 at-risk customers would be inefficient; the heatmap is the right tool for sequencing effort by revenue density.
 
-**Declining markets:** IN (-6.79%) and AU (-5.74%) are experiencing meaningful pullbacks. India's decline is particularly notable given it's the 6th largest market by revenue. This could indicate seasonal patterns, competitive pressure, or fulfilment/pricing issues in APAC. A dedicated investigation is warranted.
+**Recommended Dashboard Chart**
 
-**Core market stability:** The US (~45% of total country revenue shown) and GB (~15%) show near-flat MoM, which is healthy for established markets in December — often a high-competition period with margin compression.
+CCO Page 3: AI Retention Intelligence — Segment x Risk Revenue Heatmap (pivot table with segment rows, risk columns, and revenue as the value metric).
 
-### Recommended Dashboard Chart
+**Conversation Bot Q&A**
 
-- **Chart type:** Horizontal Bar Chart with MoM % change, colour-coded (green = positive, red = negative)
-- **Secondary view:** World choropleth map with revenue as bubble size and MoM % as colour
-- **Dimensions:** country, revenue_current_month, mom_growth_pct
-- **Sort:** MoM growth % descending
-- **Threshold lines:** +5% (growth alert), -5% (decline alert)
-
-### Conversation Bot Q&A
-
-**Q:** "Which countries are growing and which are declining in revenue right now?"
-**A:** "Looking at November to December 2024: Mexico is our fastest grower at +6.8%, followed by Brazil at +4.4% and France at +2.7%. The US and UK are stable. The two markets I'd flag for attention are India, which dropped 6.8% ($200K decline), and Australia, down 5.7% ($245K decline). These two declines offset the gains in emerging markets. Would you like me to break down India or Australia by customer segment to understand if it's a retention issue or an acquisition slowdown?"
+*Q: Which segment-risk combination should I act on first?*
+A: Platinum customers classified as At Risk — 366 customers with a $1,413 average order value. Their combined exposure is the highest-density cell in the churn matrix. Would you like Gemini's recommended retention strategy for this group?
 
 ---
 
-## CCO-5: Repeat Purchase Pattern — New vs Returning Customers
+### CCO-4: Country MoM Performance
 
-### Data
+> Dashboard reference: CCO Page 1, Revenue Overview — Country Bar Chart; CCO Page 2, Customer Breakdown — Geo Map and Country Table
 
-| Customer Type | Customer Count | Avg Orders per Customer |
-|---|---|---|
-| New | 2,556 | 1.01 |
-| Returning | 77,018 | 4.32 |
+**Data**
 
-### Business Interpretation
+December 2024 month-on-month revenue growth by country:
 
-The data shows a **clean bifurcation**: New customers average exactly 1.01 orders (essentially one purchase each, with a tiny fraction making two), while Returning customers average 4.32 orders. This is the expected shape, but the key strategic metrics here are:
-
-1. **The conversion rate from New to Returning is critical.** With 2,556 "new" customers in the dataset vs 77,018 "returning," the question is: what % of customers from prior periods have been retained? The 77,018 returning customers represent 96.8% of the active base — a high retention ratio that indicates the product-market fit is strong once a customer makes a first purchase.
-
-2. **The 4.32x repeat purchase rate for returning customers** is the retention engine. At an average order revenue of ~$600–850 (based on segment averages), a returning customer is worth $2,600–$3,660 in cumulative revenue vs a new customer's single ~$300 order. This 8–12x LTV differential makes acquiring high-intent new customers and converting them to their second purchase the single highest-ROI activity available to the CCO.
-
-3. **Focus on the "second order" conversion window.** The time between first and second order is the most predictive indicator of long-term retention. The CCO should establish a 30-day post-first-purchase campaign targeting these 2,556 new customers.
-
-### Recommended Dashboard Chart
-
-- **Chart type:** Dual Metric Scorecard + Bar comparison
-- **Metrics:** avg_orders_new (1.01) vs avg_orders_returning (4.32), shown as side-by-side bars
-- **Supporting metric:** Customer count by type (2,556 new vs 77,018 returning)
-- **Trend:** Track this ratio monthly — if avg returning drops below 4.0, it signals retention erosion
-- **CTA widget:** "Second Purchase Conversion Rate" — % of new customers from prior month who placed a second order this month
-
-### Conversation Bot Q&A
-
-**Q:** "How often do our returning customers buy compared to new customers?"
-**A:** "Returning customers average 4.32 orders each, compared to 1.01 for new customers — a 4x difference. We have 77,018 returning customers and 2,556 new customers in the current dataset. The most impactful thing we can do right now is focus on converting new customers to their second purchase: once a customer orders twice, they're statistically likely to become long-term returning buyers. A targeted 30-day post-first-purchase email or push campaign for those 2,556 new customers could significantly accelerate that conversion."
-
----
-
-# PART 2 — CPO INTELLIGENCE (Chief Product Officer)
-
----
-
-## CPO-1: BCG Matrix Proxy — Category Performance
-
-### Data
-
-| Category | Total Revenue | Total Units | Avg Margin % | Products |
-|---|---|---|---|---|
-| **Electronics** | $153,099,265 | 294,621 | 49.80% | 566 |
-| **Sports** | $28,060,693 | 146,611 | 48.78% | 344 |
-| **Home & Garden** | $22,694,356 | 166,608 | 49.76% | 373 |
-| **Clothing** | $20,109,008 | 226,496 | 49.59% | 490 |
-| **Automotive** | $11,855,720 | 47,950 | 50.21% | 133 |
-| **Beauty** | $6,514,527 | 99,317 | 49.95% | 244 |
-| **Toys** | $5,085,984 | 57,154 | 50.89% | 153 |
-| **Books** | $1,724,891 | 70,487 | 49.92% | 197 |
-
-### BCG Classification
-
-| BCG Quadrant | Category | Rationale |
-|---|---|---|
-| **Star (High Revenue, High Volume)** | Electronics | $153M revenue, 295K units — dominant in both dimensions |
-| **Cash Cow (High Revenue, Lower Growth)** | Sports, Home & Garden | Solid revenue, high unit throughput, consistent margins |
-| **Question Mark (High Volume, Low Revenue)** | Clothing, Books | Clothing: 226K units but only $20M (low ASP); Books: 70K units, $1.7M |
-| **Dog (Low Revenue, Low Volume)** | Automotive | Small unit count (48K) but high revenue per unit — actually a niche premium play |
-
-### Business Interpretation
-
-**Electronics is the clear Star** — it generates 62% of all category revenue with 566 products. However, margin at 49.8% is in line with the portfolio average, suggesting pricing power rather than cost advantage.
-
-**Clothing is the strategic opportunity:** 226,496 units sold (the highest volume category) but only $20.1M revenue implies an average item price of ~$89. With 490 products and a margin of 49.6%, there is significant room to shift the mix toward higher-ASP items (premium apparel, seasonal collections) without sacrificing volume.
-
-**Books is a volume channel with no revenue upside** — 70K units at ~$24 average price. Consider whether Books serves a customer acquisition or cross-sell purpose (bringing customers to the platform who then buy Electronics or Sports) rather than a direct revenue driver.
-
-**Automotive is a hidden premium segment:** 47,950 units at $247 average unit price vs Clothing's $89. With only 133 products, the catalogue is thin. Expanding Automotive with 50–80 additional SKUs targeting the same premium buyer profile could efficiently add $5–8M in incremental revenue.
-
-### Recommended Dashboard Chart
-
-- **Chart type:** Bubble Chart (BCG Matrix)
-- **X-axis:** Total units sold (volume proxy for market share)
-- **Y-axis:** Total revenue (size proxy)
-- **Bubble size:** Avg margin %
-- **Colour:** Category name
-- **Quadrant lines:** Median revenue ($13.8M) and median units (108K)
-
-### Conversation Bot Q&A
-
-**Q:** "Which product categories are our stars vs underperformers?"
-**A:** "Electronics is the undisputed star — $153M in revenue from 295,000 units. Sports and Home & Garden are solid cash cows bringing in $28M and $23M respectively. The category I'd highlight as a strategic opportunity is Clothing: it's our highest-volume category at 226,000 units sold, but only generating $20M because average prices are low. If we shift even 10% of Clothing volume toward premium lines, that's potentially $3–5M in additional revenue. Books, on the other hand, looks more like a customer acquisition channel than a revenue driver."
-
----
-
-## CPO-2: Brand Concentration — Top 10 Brands by Revenue vs Reach
-
-### Data
-
-| Brand | Total Revenue | Unique Buyers | Total Units | Revenue per Buyer |
-|---|---|---|---|---|
-| **PulseGear** | $12,623,815 | 7,905 | 13,595 | $1,596.94 |
-| **EchoSphere** | $10,468,338 | 9,426 | 16,608 | $1,110.58 |
-| **VoltEdge** | $9,971,355 | 11,154 | 20,145 | $893.97 |
-| **ClearVision** | $9,301,938 | 9,566 | 16,557 | $972.40 |
-| **InfinityPro** | $9,112,409 | 9,484 | 16,772 | $960.82 |
-| **PixelCore** | $8,875,946 | 9,091 | 15,841 | $976.34 |
-| **OrbitX** | $8,391,218 | 8,173 | 14,005 | $1,026.70 |
-| **ZenithWave** | $7,743,136 | 9,050 | 15,764 | $855.60 |
-| **NexaLabs** | $7,707,842 | 7,354 | 12,507 | $1,048.12 |
-| **NovaTech** | $7,374,075 | 9,978 | 17,710 | $739.03 |
-
-### Brand Segmentation
-
-| Brand Type | Brand | Signal |
-|---|---|---|
-| **Premium Niche** | PulseGear | Highest revenue per buyer ($1,597) but lowest relative reach (7,905 buyers). Loyal high-value audience. |
-| **Premium Niche** | NexaLabs | $1,048 per buyer, narrow buyer base (7,354). High ASP, selective appeal. |
-| **Mass Premium** | EchoSphere | $1,111/buyer with 9,426 buyers — strong blend of reach and value. |
-| **Broad Appeal** | NovaTech | Widest buyer reach (9,978) but lowest revenue per buyer ($739). Volume-driven. |
-| **Broad Appeal** | VoltEdge | 11,154 buyers (widest of top 10), $894/buyer — the most democratic premium brand. |
-
-### Business Interpretation
-
-**PulseGear** is the premium niche leader — smallest buyer base (7,905) but highest revenue extraction per customer ($1,597). This brand likely skews toward the Platinum/Gold segment and should be the anchor for VIP bundles, loyalty rewards, and high-margin upsell campaigns.
-
-**NovaTech** has the broadest reach (9,978 buyers) but lowest revenue per buyer ($739). This is the acquisition brand — it gets customers in the door. The strategic play is cross-selling NovaTech buyers into PulseGear, EchoSphere, or NexaLabs over time.
-
-**The top 5 brands** (PulseGear, EchoSphere, VoltEdge, ClearVision, InfinityPro) collectively generate ~$51.4M from ~47,000 unique buyers. These brands are the CPO's core portfolio — their product roadmap and catalogue health directly determines the top line.
-
-### Recommended Dashboard Chart
-
-- **Chart type:** Scatter Plot
-- **X-axis:** unique_buyers (reach)
-- **Y-axis:** revenue_per_buyer (value)
-- **Bubble size:** total_revenue
-- **Colour:** brand name
-- **Quadrant annotation:** "Premium Niche" (low x, high y) vs "Broad Appeal" (high x, low y) vs "Ideal" (high x, high y)
-
-### Conversation Bot Q&A
-
-**Q:** "Which brands have the highest revenue per customer and which have the broadest reach?"
-**A:** "PulseGear leads on revenue per buyer at $1,597 per customer from 7,905 buyers — that's your premium niche play. NovaTech is the opposite: broadest reach at nearly 10,000 buyers but $739 per customer. EchoSphere is the sweet spot — $1,111 per buyer from 9,426 buyers, making it both broad and premium. For cross-sell strategy, I'd use NovaTech as the acquisition brand and then migrate those buyers toward PulseGear and EchoSphere. Would you like to see which customer segments each brand skews toward?"
-
----
-
-## CPO-3: Hidden Gems — High Margin, Underperforming Volume Products
-
-### Data (Top 20, margin > 55%, units < median)
-
-| Product | Category | Brand | Margin % | Units | Revenue |
-|---|---|---|---|---|---|
-| ClearDew Smart Haircare 242 | Beauty | ClearDew | 64.97% | 210 | $24,326 |
-| ZoomKids Premium Action Figures 14 | Toys | ZoomKids | 64.95% | 228 | $61,205 |
-| WildRoots Deluxe Outerwear 184 | Clothing | WildRoots | 64.95% | 251 | $19,048 |
-| CloudDrape Compact Dresses 343 | Clothing | CloudDrape | 64.92% | 243 | $38,373 |
-| FreeStride Compact Yoga 145 | Sports | FreeStride | 64.89% | 238 | $24,540 |
-| BrightSpark Deluxe Action Figures 45 | Toys | BrightSpark | 64.86% | 187 | $41,878 |
-| **CrystalBit Pro Cameras 102** | Electronics | CrystalBit | **64.80%** | 240 | **$223,415** |
-| TrueBlend Premium Men's Tops 111 | Clothing | TrueBlend | 64.76% | 239 | $46,761 |
-| StoneHaven Premium Bedding 320 | Home & Garden | StoneHaven | 64.55% | 249 | $98,294 |
-| GraniteCore Smart Kitchen 300 | Home & Garden | GraniteCore | 64.59% | 231 | $10,057 |
-
-*Full list contains 20+ qualifying products. Representative sample shown.*
-
-### Business Interpretation
-
-**The most valuable hidden gem is CrystalBit Pro Cameras 102 (Electronics):** 64.8% margin at $936 unit price, generating $223K from only 240 units. This product has the highest revenue upside of any gem on the list — if units sold were doubled from 240 to 480 (still well below the median), incremental revenue would be ~$223K with ~$145K in margin.
-
-**The Clothing category has the most hidden gems** (WildRoots, CloudDrape, TrueBlend), which is notable given that Clothing is also the highest-volume category with the lowest ASP. These outlier premium clothing products are being drowned out in a sea of low-price SKUs. Better placement, dedicated campaigns, and search prominence would surface them to the right high-value customers.
-
-**Pattern across gems:** All products in this list have margins 30–40% above the category average (~49–51%). This suggests they are either priced significantly above category norms (premium positioning) or have lower COGS (potentially private label or direct-source). The CPO should verify the margin data integrity before launching campaigns.
-
-**Recommended actions:**
-1. Feature CrystalBit Pro Cameras 102 in Electronics homepage placement
-2. Bundle Clothing gems (WildRoots, TrueBlend) with top Electronics brands for upsell
-3. Create a "Premium Picks" collection featuring these products for Gold/Platinum segment targeting
-
-### Recommended Dashboard Chart
-
-- **Chart type:** Scatter Plot with threshold lines
-- **X-axis:** total_units (volume)
-- **Y-axis:** avg_margin_pct
-- **Bubble size:** total_revenue
-- **Colour:** category
-- **Highlight zone:** Quadrant where margin > 55% AND units < median — label as "Hidden Gems"
-- **Click-through:** Product detail cards for each gem
-
-### Conversation Bot Q&A
-
-**Q:** "Are there any high-margin products that aren't getting enough sales attention?"
-**A:** "Yes — I found 20+ products with margins above 55% but unit sales below the median. The standout is CrystalBit Pro Cameras 102 in Electronics: 64.8% margin at $936 per unit, generating $223K from only 240 units. If we doubled sales on this product alone, that's another $145K in gross margin. Clothing has several hidden gems too — WildRoots Deluxe Outerwear, CloudDrape Dresses, and TrueBlend Men's Tops all have margins near 65% but low visibility. These products would benefit from featured placement and targeted campaigns to Gold and Platinum customers."
-
----
-
-## CPO-4: Category Cross-Sell Depth
-
-### Data
-
-| Metric | Value |
+| Country | MoM Revenue Change (Dec 2024) |
 |---|---|
-| Avg distinct categories per customer | **3.85** |
-| Min categories per customer | 1 |
-| Max categories per customer | 8 |
-| Multi-category customers (>1 category) | 66,273 |
-| Total unique customers | 78,325 |
-| Single-category customers | 12,052 (15.4%) |
+| Australia (AU) | -5.74% |
+| India (IN) | -6.79% |
+| Mexico (MX) | +6.76% |
+| Brazil (BR) | +4.43% |
 
-### Business Interpretation
+**Business Interpretation**
 
-The average customer purchases across **3.85 distinct categories** — an exceptionally strong cross-sell rate. This means the platform already benefits from strong natural cross-category discovery. There are 8 categories total, so an average of 3.85 means customers are regularly buying from nearly half the catalogue.
+The two largest markets by customer base — Australia and India — are both contracting in December 2024, which is significant given the seasonal expectation of Q4 strength. A -6.79% MoM decline in India alongside -5.74% in Australia during what should be a peak period warrants investigation into whether this reflects market saturation, competitive pressure, or a logistics/fulfilment issue. Conversely, Mexico and Brazil are growing at rates exceeding 4%, suggesting that emerging market investment is beginning to yield returns. A geographic rebalancing of marketing spend toward MX and BR may be warranted in Q1 2025.
 
-**15.4% of customers (12,052) buy from only a single category.** These are the highest-priority cross-sell targets. For context, a single-category customer buying only Electronics (avg $853 Platinum order value) who can be converted to also buying Sports or Home & Garden represents a potential 2x revenue increase per customer.
+**Recommended Dashboard Chart**
 
-**The maximum of 8 categories** means some customers buy across the entire catalogue — these are likely the Platinum segment super-users and represent the "ideal customer" archetype for marketing materials and acquisition targeting.
+CCO Page 1: Revenue Overview — Country Bar Chart (revenue by country). CCO Page 2: Customer Breakdown — Geo Map (bubble size = revenue) and Country Table (with MoM delta column).
 
-**Gemini upsell integration opportunity:** The `gemini_upsell_strategy` field in rpt_cpo_dashboard provides AI-generated upsell recommendations. With 3.85 average categories, there is an active cross-sell engine working — the CPO should review `upsell_status` completion rates to measure AI recommendation conversion.
+**Conversation Bot Q&A**
 
-### Recommended Dashboard Chart
-
-- **Chart type:** Histogram (distribution of customers by category count 1–8)
-- **Overlay:** Revenue contribution per category-count cohort (customers buying 5+ categories likely over-index on revenue)
-- **Scorecard:** Avg categories per customer as KPI with trend over time
-- **Supporting table:** Top 5 category pair combinations (what do Electronics buyers also buy?)
-
-### Conversation Bot Q&A
-
-**Q:** "How well are we cross-selling across product categories?"
-**A:** "Our cross-sell performance is strong — customers buy from an average of 3.85 different categories out of 8 total. 84.6% of our customer base (66,273 customers) already shops in multiple categories. The opportunity lies in the remaining 12,052 single-category customers — converting even 20% of them to multi-category buyers could add meaningful revenue. Would you like to see which single-category customers are in the Platinum or Gold segment? Those would be the highest-value cross-sell targets."
+*Q: Which countries are growing and which are declining this month?*
+A: In December 2024, Mexico (+6.76%) and Brazil (+4.43%) are growing. Australia (-5.74%) and India (-6.79%) are declining. The AU and IN declines are notable given seasonal expectations. Would you like to drill into customer acquisition or order volume trends for those markets?
 
 ---
 
-## CPO-5: Discount Impact Analysis by Category
+### CCO-5: Repeat Purchase Pattern
 
-### Data
+> Dashboard reference: CCO Page 1, Revenue Overview — Time Series; CCO Page 2, Customer Breakdown — Churn Risk Bar
 
-| Category | Avg Discount | Total Units | Total Revenue | Avg Margin % |
-|---|---|---|---|---|
-| **Electronics** | $6.66 | 294,621 | $153,099,265 | 49.80% |
-| **Automotive** | $3.10 | 47,950 | $11,855,720 | 50.21% |
-| **Sports** | $2.42 | 146,611 | $28,060,693 | 48.78% |
-| **Home & Garden** | $1.71 | 166,608 | $22,694,356 | 49.76% |
-| **Toys** | $1.14 | 57,154 | $5,085,984 | 50.89% |
-| **Clothing** | $1.12 | 226,496 | $20,109,008 | 49.59% |
-| **Beauty** | $0.83 | 99,317 | $6,514,527 | 49.95% |
-| **Books** | $0.31 | 70,487 | $1,724,891 | 49.92% |
+**Data**
 
-### Business Interpretation
+| Customer Type | Count | Avg Orders |
+|---|---|---|
+| New Customers | 2,556 | 1.01 |
+| Returning Customers | 77,018 | 4.32 |
+| New Customer Acquisition Peak | Oct 2024 — 430 customers | — |
+| New Customer Acquisition Dec 2024 | 306 customers | -27% MoM from peak |
 
-**Electronics receives the highest absolute discount ($6.66 avg)** and also drives the highest unit volume (295K units) and revenue ($153M). This is consistent with a category where discounting is necessary to remain competitive and drive volume in a high-ASP, comparison-shopped market.
+**Business Interpretation**
 
-**Critical observation — discount vs margin relationship:** Despite Electronics receiving 2x the discount of the next-highest category (Automotive at $3.10), its margin (49.8%) is nearly identical to all other categories (48.78% – 50.89%). This tight margin band across all categories (range: 2.1 percentage points) is highly unusual and may indicate that:
-1. Margins are calculated net of discounts, meaning discounts are being absorbed into the margin figures
-2. The pricing engine is actively adjusting list prices to preserve margin regardless of discount level
-3. The margin_pct field may be based on a standard cost model rather than realised profitability
+The ratio of returning to new customers (77,018 vs. 2,556) indicates a mature, retention-driven business — which is both a strength and a vulnerability. Strength because returning customers at 4.32 orders are far more valuable per head. Vulnerability because the new customer acquisition pipeline is visibly weakening: a 27% decline from the October 2024 peak of 430 to just 306 in December is a leading indicator of future revenue attrition if not reversed. The business cannot rely solely on its existing base; some level of new customer injection is required to offset natural churn from the returning base over time.
 
-**Books has the lowest discount ($0.31) but also lowest revenue** — discounting is not the driver of volume in Books. Price sensitivity here is minimal.
+**Recommended Dashboard Chart**
 
-**Toys has the highest margin (50.89%) with moderate discounting ($1.14)** — this is the most margin-efficient category. Increasing Toys promotion (slightly higher discount to drive volume) could increase revenue without significant margin erosion.
+CCO Page 1: Revenue Overview — Time Series (with New Customers as a secondary line). CCO Page 2: Customer Breakdown — Churn Risk Bar (repeat rate context).
 
-### Recommended Dashboard Chart
+**Conversation Bot Q&A**
 
-- **Chart type:** Dual-axis Bar + Line Chart
-- **Primary bars:** avg_discount per category (left y-axis)
-- **Secondary line:** avg_margin_pct per category (right y-axis)
-- **X-axis:** Category (sorted by avg discount descending)
-- **Bubble overlay:** Total units sold (size represents volume impact)
-- **Annotation:** Flag Electronics as "High Discount, High Volume" outlier
-
-### Conversation Bot Q&A
-
-**Q:** "Is discounting hurting our margins in any category?"
-**A:** "Interestingly, no — at least not visibly. Despite Electronics receiving the highest average discount at $6.66 per item, its margin at 49.8% is in line with all other categories which cluster tightly between 48.8% and 50.9%. This tight margin band across all categories suggests our pricing engine is preserving margins effectively. However, I'd flag this for your finance team to verify — if discounts are being absorbed pre-margin calculation, we may be understating the true cost of promotions. Toys has the best margin (50.89%) with low discounting ($1.14) — that's the category where a modest promotional push would give the best return."
+*Q: Is new customer acquisition trending up or down?*
+A: Down. New customer acquisition peaked at 430 in October 2024 and dropped to 306 in December 2024 — a 27% decline in two months. This is a leading indicator worth monitoring. Would you like to see which acquisition channels or countries are driving the drop?
 
 ---
 
-# PART 3 — CTO INTELLIGENCE (Chief Technology Officer)
+### CCO-6: AI Retention Intelligence
+
+> Dashboard reference: CCO Page 3, AI Retention Intelligence
+
+#### What the AI Retention Page Shows
+
+Page 3 of the CCO dashboard is the analytical centrepiece of the customer intelligence layer. It surfaces Gemini AI outputs at the individual customer level, aggregated into board-ready visualisations. The page contains five components:
+
+1. **Revenue at Risk Scorecard** — a single large scorecard showing approximately $15.8M in combined revenue attributable to Cooling and At-Risk customers. This is calculated from the `mart_executive_summary_enriched` table using churn risk classification fields sourced from `ai.customer_concierge`.
+
+2. **AI Coverage %** — the percentage of at-risk customers who have received a Gemini-generated persona and strategy. A coverage rate below 95% indicates that some customers are being excluded from AI enrichment and may be falling through the retention net.
+
+3. **Strategy Type Donut** — shows the distribution of Gemini-recommended retention strategies across the at-risk population. Categories are: Offer/Discount, Win-back, Loyalty Reward, Product Recommendation, and Personalised Outreach. The donut allows the CCO to understand the campaign mix required before briefing the CRM team.
+
+4. **Segment x Risk Heatmap** — a pivot table with customer segments as rows and churn risk levels as columns, with revenue as the cell value. This is the fastest way to identify which intervention deserves the most resources.
+
+5. **AI Persona Spotlight Table** — a detailed table showing individual customers with columns for customer_id, segment, churn_risk, gemini_insight, and revenue trend. This is the operational handoff layer — the CRM team uses this table to execute campaigns.
+
+#### How to Interpret Persona and Strategy Fields
+
+The `customer_concierge` table stores two Gemini-generated JSON fields per customer: `persona` (a natural language description of the customer's behavioural archetype, e.g. "deal-sensitive repeat buyer who responds to limited-time offers") and `strategy` (an actionable CRM instruction, e.g. "Trigger 15% discount email within 48 hours of last session"). The `mart_executive_summary_enriched` table exposes the `gemini_insight` field, which concatenates these two fields into a single readable string for dashboard display.
+
+When reading the Persona Spotlight table, the `gemini_insight` column should be read as: first, who this customer is, then what to do about it. The persona section provides context; the strategy section is the action.
+
+#### Revenue at Risk Calculation
+
+Revenue at Risk is not a predictive model — it is a descriptive classification. Customers are flagged as Cooling (declining order frequency) or At Risk (extended period of inactivity relative to their historical purchase cadence). The $15.8M figure represents the last-12-months revenue attributable to all customers currently in these two states. If no intervention occurs and these customers churn fully, $15.8M of annualised revenue is at risk of non-recurrence.
+
+The calculation pulls from `mart_executive_summary_enriched` where `churn_risk IN ('Cooling', 'At Risk')` and aggregates revenue over the trailing 12 months.
+
+#### How to Use the Strategy Type Donut to Prioritise Campaigns
+
+The Strategy Type donut is a resource-allocation tool. Before the CRM team can execute retention campaigns, they need to know what mix of campaign types to prepare creative and budget for. If the donut shows 45% Win-back, 30% Loyalty Reward, and 25% Offer/Discount, the team should prioritise Win-back creative first by volume. Clicking any segment of the donut filters the Persona Spotlight table to show only customers with that strategy — enabling direct export for campaign execution.
+
+#### What Each Strategy Category Means in Practice
+
+- **Offer/Discount**: Customer is price-sensitive or has responded to promotions historically. Gemini recommends a time-bound discount to re-engage. Typical for Silver and Bronze segments.
+- **Win-back**: Customer has lapsed beyond their normal purchase cycle. A re-engagement email sequence with a strong incentive is recommended. Most relevant for Platinum and Gold customers who went quiet.
+- **Loyalty Reward**: Customer is engaged but showing early cooling signals. Rewarding continued loyalty before full churn occurs is more cost-effective than a win-back. Tier upgrade offers and points multipliers apply here.
+- **Product Recommendation**: Customer's purchase history suggests an adjacent product or category they have not yet explored. Gemini identifies the category gap and recommends a specific product family. Most effective for customers with 2–4 lifetime categories.
+- **Personalised Outreach**: Customer profile is complex or high-value enough to warrant a human touchpoint — account manager call or personalised email from a named sender. Reserved primarily for Platinum customers.
+
+**Recommended Dashboard Chart**
+
+CCO Page 3: AI Retention Intelligence — Strategy Type Donut (Gemini category distribution) and AI Persona Spotlight Table (customer_id, segment, churn_risk, gemini_insight, revenue trend).
+
+**Conversation Bot Q&A**
+
+*Q: What are Gemini's top retention strategies for our at-risk Platinum customers?*
+A: For the 366 Platinum customers currently at risk, Gemini's most common recommended strategies are Win-back and Personalised Outreach, reflecting their high value and the importance of a human-feeling touchpoint. Each has a tailored persona and strategy in the AI Persona Spotlight table on Page 3. Would you like me to list the top 10 by revenue exposure?
+
+*Q: How much revenue could we recover if we retain the at-risk customers?*
+A: The Revenue at Risk scorecard shows approximately $15.8M. Full recovery is unlikely, but even a 50% retention rate on Cooling customers — who are typically more recoverable than At Risk — could protect $6–8M in annualised revenue. Would you like a breakdown by segment?
 
 ---
 
-## CTO-1: Data Freshness — Pipeline Currency
-
-### Data
-
-| Table | Layer | Max Order/Activity Date | Max Pipeline Updated_At | Row Count |
-|---|---|---|---|---|
-| `gold.fct_orders` | Gold | 2024-12-31 | 2026-03-25 03:02:14 UTC | 1,200,000 |
-| `gold.dim_customers` | Gold | 2024-12-31 (last_purchase) | 2026-03-25 03:01:44 UTC | 100,000 |
-| `silver.stg_orders` | Silver | 2024-12-31 | 2026-03-25 03:00:11 UTC | 1,200,000 |
-
-### Business Interpretation
-
-**The data is current as of today (2026-03-25):** All three key tables show `updated_at` timestamps from this morning's pipeline run. The gold and silver layers are in sync.
-
-**However, the maximum order_date is 2024-12-31** — meaning the most recent business data in the warehouse is over 15 months old. This is either:
-1. **Expected** — if the operational system cutover was 2024-12-31 and this is a historical analysis warehouse
-2. **A pipeline gap** — if orders placed from January 2025 onward are not being ingested
-
-The CTO must confirm whether this is a deliberate data scope or a live pipeline failure. The `updated_at` timestamps confirm the ETL ran today, but if the source system has no new data to send (or the ingestion job is filtering incorrectly), the pipeline would appear healthy while data is stale.
-
-**Recommendation:** Add a data freshness SLA monitor — alert if `MAX(order_date)` in `fct_orders` falls more than 2 days behind `CURRENT_DATE()`. This alert is currently missing from the monitoring stack.
-
-### Recommended Dashboard Chart
-
-- **Chart type:** Data Quality Scorecard panel
-- **Metrics:**
-  - "Last Order Date" — MAX(order_date) from fct_orders, flagged RED if > 2 days behind current date
-  - "Last Pipeline Run" — MAX(updated_at) formatted as relative time ("X hours ago")
-  - "Silver → Gold Lag" — difference in updated_at between stg_orders and fct_orders (currently ~2 min, healthy)
-- **Threshold:** Green = < 24h lag; Amber = 24–48h; Red = > 48h
-
-### Conversation Bot Q&A
-
-**Q:** "How fresh is the data in the dashboard? When was it last updated?"
-**A:** "The pipeline ran this morning — gold.fct_orders was last updated at 03:02 UTC on March 25, 2026, and the silver staging layer was updated at 03:00 UTC — a healthy 2-minute transformation lag. However, I want to flag that the most recent order date in the dataset is December 31, 2024. If your business has been operating since then, we should investigate whether January 2025 onwards orders are flowing into the warehouse. This could indicate a pipeline scope issue. I'd recommend escalating this to the data engineering team for confirmation."
+## PART 2 — CPO INTELLIGENCE
 
 ---
 
-## CTO-2: Referential Integrity — Order-to-Customer Linkage
+### CPO-1: Category Revenue Performance
 
-### Data
+> Dashboard reference: CPO Page 1, Category Performance — Revenue/Margin/Units Scorecards and Bar Chart by Category
 
-| Metric | Value |
-|---|---|
-| Orders with no matching customer in dim_customers | **0** |
-| Orphan customer IDs | **0** |
-| Total orders scanned | 1,200,000 |
+**Data**
 
-### Business Interpretation
-
-**Perfect referential integrity: 0 orphan orders out of 1.2 million.** Every single order in `fct_orders` has a valid matching customer record in `dim_customers`. This is an excellent signal that:
-
-1. The dbt transformations are enforcing join quality correctly
-2. Customer deduplication and ID resolution is working as intended
-3. The warehouse is safe for customer-centric analytics without fear of revenue attribution errors
-
-**This is production-grade data quality** — many e-commerce warehouses carry 1–5% orphan order rates from customer record deletions, source system migrations, or GDPR anonymisation. Zero orphans here indicates a mature data governance posture.
-
-**Ongoing monitoring recommendation:** This test should be run as a scheduled data quality assertion (dbt test or Dataform assertion) after every pipeline run. The `dataform_assertions` dataset visible in the project suggests this infrastructure already exists — confirm this specific referential integrity check is registered there.
-
-### Recommended Dashboard Chart
-
-- **Chart type:** Data Quality Indicator (traffic light / gauge)
-- **Metric:** Orphan order rate = orphan_orders / total_orders × 100
-- **Current value:** 0.00%
-- **Threshold:** Green = 0%; Amber = 0.01–0.1%; Red = > 0.1%
-- **Trend:** Track daily — any spike indicates a pipeline regression
-
-### Conversation Bot Q&A
-
-**Q:** "Are there any data quality issues in the warehouse I should know about?"
-**A:** "Good news — referential integrity is perfect. All 1.2 million orders in fct_orders have valid customer records in dim_customers, with zero orphans. This means all revenue attribution and customer analytics are accurate. The data pipeline shows a 2-minute silver-to-gold transformation lag, and the pipeline ran on schedule this morning. The one item I'd flag for investigation is that the most recent order date is December 31, 2024 — worth confirming whether this is expected data scope or a live ingestion gap."
-
----
-
-## CTO-3: Row Counts — Table Volume Audit
-
-### Data
-
-| Table | Dataset | Rows | Notes |
+| Category | Revenue | Margin % | Units |
 |---|---|---|---|
-| `fct_orders` | gold | **1,200,000** | Partitioned by order_date; clustered by customer_id, status |
-| `stg_order_items` | silver | **2,658,132** | Line-item grain; ~2.2 items per order average |
-| `dim_customers` | gold | **100,000** | One row per customer; clustered by segment, country |
-| `dim_products` | gold | **2,500** | One row per product SKU; clustered by category, brand |
+| Electronics | $153M | 49.8% | — |
+| Clothing | $20M | — | 226K |
 
-### Business Interpretation
+**Business Interpretation**
 
-**Volume is consistent and internally coherent:**
+Electronics is the undisputed Star category: $153M in revenue at a 49.8% gross margin. This combination of scale and profitability is rare and should be protected aggressively. Clothing, by contrast, delivers the highest unit volume at 226K but only $20M in revenue — implying a very low average selling price and likely significant markdown or promotional activity. The strategic question for the CPO is whether Clothing's volume can be monetised through upsell into adjacent premium categories, or whether it serves primarily as an acquisition funnel.
 
-- **1.2M orders / 100K customers = 12.0 average orders per customer lifetime.** This is very high and should be interpreted as all historical orders, not annual. Cross-referencing with the 4.32 avg orders for returning customers (CCO-5), this implies the customer base spans approximately 2–3 years of order history.
+**Recommended Dashboard Chart**
 
-- **2.66M order items / 1.2M orders = 2.22 items per order average.** This matches the `avg_item_price` calculations well. Basket size optimisation (increasing from 2.22 to 2.5 items per order) would represent a ~12.6% revenue uplift with no customer acquisition cost.
+CPO Page 1: Category Performance — Bar Chart by Category (revenue) with a margin % overlay, and the Revenue/Margin/Units scorecards at the top of the page.
 
-- **2,500 product SKUs across 8 categories = ~312 SKUs per category average.** Electronics has 566 SKUs (disproportionately large), Automotive has only 133 (identified earlier as an expansion opportunity).
+**Conversation Bot Q&A**
 
-- **The silver stg_order_items table (2.66M rows) is the largest table** in the pipeline. Query cost monitoring should focus here — always ensure queries against stg_order_items use partition pruning or aggregation layers.
-
-**The fct_orders to stg_orders row count is exactly 1:1 (both 1,200,000 rows)** — confirming that the gold transformation applies no filtering or deduplication beyond what the silver layer has already done. This is worth confirming is intentional (no cancelled/returned order exclusions in fct_orders).
-
-### Recommended Dashboard Chart
-
-- **Chart type:** Table / Metrics Summary Card (for internal tech audience)
-- **Metrics per table:** Row count, last updated, partition depth, avg query cost (from INFORMATION_SCHEMA.JOBS)
-- **Alert:** Row count trend — flag if any table's row count decreases MoM (potential data deletion issue)
-- **Separate chart:** Items per order trend over time (from stg_order_items / fct_orders by month) — benchmark 2.22 as baseline
-
-### Conversation Bot Q&A
-
-**Q:** "How big is our data warehouse and are the table sizes what we'd expect?"
-**A:** "The warehouse contains 1.2 million orders from 100,000 customers, with 2.66 million order line items across 2,500 product SKUs. The ratio checks out: 2.22 items per order on average, and 12 orders per customer over their lifetime. One interesting optimisation opportunity: if we can increase average basket size from 2.22 to 2.5 items through better cross-sell recommendations at checkout, that's a 12–13% revenue uplift with zero acquisition cost. I'd also flag that stg_order_items at 2.66M rows is the warehouse's largest table — make sure all queries against it are using partition pruning to keep costs down."
+*Q: Which product category has the best margin?*
+A: Electronics leads with a 49.8% gross margin on $153M in revenue — making it both the highest-revenue and highest-margin category. Clothing has the most units (226K) but significantly lower revenue per unit. Would you like to see the margin trend over time?
 
 ---
 
-# APPENDIX A — Query Reference
+### CPO-2: Brand Performance
 
-All queries executed against `vishal-sandpit-474523` BigQuery project on 2026-03-25.
+> Dashboard reference: CPO Page 2, Product Leaderboard — Brand Bar Chart
 
-| Analysis | Primary Table | Key Fields Used |
-|---|---|---|
-| CCO-1: Revenue Concentration | gold.rpt_cco_dashboard | order_revenue, customer_id (window functions for LTV decile) |
-| CCO-2: Segment Trend | gold.rpt_cco_dashboard | year_month, customer_segment, customer_type, customer_id |
-| CCO-3: Churn-Revenue Matrix | gold.rpt_cco_dashboard | customer_segment, churn_risk, order_revenue, customer_id |
-| CCO-4: Country MoM Growth | gold.rpt_cco_dashboard | country, year_month, order_revenue (DENSE_RANK window) |
-| CCO-5: Repeat Purchase Pattern | gold.rpt_cco_dashboard | customer_type, customer_id, order_id |
-| CPO-1: BCG Matrix | gold.rpt_cpo_dashboard | category, item_revenue, units_sold, margin_pct, product_id |
-| CPO-2: Brand Concentration | gold.rpt_cpo_dashboard | brand, item_revenue, customer_id, units_sold |
-| CPO-3: Hidden Gems | gold.rpt_cpo_dashboard | product_id, product_name, margin_pct, units_sold (PERCENTILE_CONT) |
-| CPO-4: Cross-Sell Depth | gold.rpt_cpo_dashboard | customer_id, category (COUNT DISTINCT) |
-| CPO-5: Discount Impact | gold.rpt_cpo_dashboard | category, discount, units_sold, item_revenue, margin_pct |
-| CTO-1: Data Freshness | gold.fct_orders, gold.dim_customers, silver.stg_orders | order_date, updated_at, COUNT(*) |
-| CTO-2: Referential Integrity | gold.fct_orders LEFT JOIN gold.dim_customers | customer_id (LEFT JOIN null check) |
-| CTO-3: Row Counts | gold.fct_orders, silver.stg_order_items, gold.dim_customers, gold.dim_products | COUNT(*) |
+**Data**
+
+| Brand | Revenue | Revenue per Buyer | Buyers |
+|---|---|---|---|
+| PulseGear | $12.6M | $1,597 | ~7,890 |
+| NovaTech | — | $739 | 9,978 |
+
+**Business Interpretation**
+
+PulseGear is the premium niche brand: $1,597 revenue per buyer signals a high-ASP, loyal customer base. NovaTech is the acquisition brand: 9,978 buyers is the widest reach in the portfolio but at $739 per buyer, these customers need to be migrated up the value ladder. A brand partnership or co-marketing strategy that introduces NovaTech buyers to PulseGear product families could be the highest-ROI brand initiative in the near term.
+
+**Recommended Dashboard Chart**
+
+CPO Page 2: Product Leaderboard — Brand Bar Chart (revenue by brand), with revenue per buyer as a secondary metric.
+
+**Conversation Bot Q&A**
+
+*Q: Which brand generates the most revenue per customer?*
+A: PulseGear leads at $1,597 revenue per buyer on $12.6M total revenue — a premium niche positioning. NovaTech has the most buyers (9,978) but at $739 per buyer. The CPO opportunity is to cross-introduce NovaTech buyers to PulseGear. Would you like the product overlap analysis?
 
 ---
 
-# APPENDIX B — Dataset Inventory
+### CPO-3: Cross-Sell Depth
 
-| Dataset | Tables Available |
+> Dashboard reference: CPO Page 1, Category Performance — Stacked Area Time Series; CPO Page 3, AI Upsell Intelligence
+
+**Data**
+
+| Metric | Value |
 |---|---|
-| gold | fct_orders, dim_customers, dim_customers_analyst (view), dim_products, mart_executive_summary, mart_revenue_summary, rpt_cco_dashboard (view), rpt_cpo_dashboard (view) |
-| silver | stg_customers, stg_order_items, stg_orders, stg_products |
-| bronze | ext_customers, ext_customers_delta, ext_orders, ext_orders_delta, ext_order_items, ext_order_items_delta, ext_products, ext_products_delta |
-| Other | ai, curated_zone, dataform_assertions, governance, raw_zone |
+| Avg categories per customer | 3.85 out of 8 |
+| Single-category customers | 12,052 |
+| Single-category customers as % of base | 15.4% |
+
+**Business Interpretation**
+
+The average customer engages with 3.85 of 8 available categories — meaning roughly half the catalogue is untouched per customer on average. The 12,052 single-category customers (15.4% of the base) represent the clearest and most actionable cross-sell opportunity: these are customers the business has already acquired and retained, but who have not been guided beyond their entry point. A structured cross-sell motion — whether through Gemini-powered recommendations or category-specific email journeys — applied to this segment could materially increase revenue per customer without acquiring a single new buyer.
+
+**Recommended Dashboard Chart**
+
+CPO Page 3: AI Upsell Intelligence — Category x Upsell Type Heatmap (pivot showing which categories have the most AI-generated cross-sell recommendations).
+
+**Conversation Bot Q&A**
+
+*Q: How many customers have only bought from one category?*
+A: 12,052 customers — 15.4% of the total base — have purchased from only one of eight available categories. These are your highest-priority cross-sell targets. Gemini has generated cross-category recommendations for each. Would you like to see which categories they are currently in?
 
 ---
 
-# APPENDIX C — Strategic Priorities Summary
+### CPO-4: Product Leaderboard and Hidden Gems
 
-## Top 5 Actions for CCO
-1. Launch Platinum Win-Back campaign targeting 366 At Risk customers ($1,413 avg order value each)
-2. Investigate December new customer acquisition drop (27% decline from October peak)
-3. Design second-purchase conversion journey for 2,556 current new customers
-4. Increase investment in Mexico (+6.8% MoM) and Brazil (+4.4% MoM) growth markets
-5. Commission LTV model audit — top 10% generating only 7.1% of revenue is anomalous
+> Dashboard reference: CPO Page 2, Product Leaderboard — Top 20 Products Table; CPO Page 3, AI Upsell Intelligence — Enriched Product Table
 
-## Top 5 Actions for CPO
-1. Feature CrystalBit Pro Cameras 102 — 64.8% margin, currently underselling at 240 units
-2. Expand Automotive catalogue from 133 to 200+ SKUs — highest revenue-per-unit in portfolio
-3. Cross-sell Electronics buyers (PulseGear/ClearVision) into Sports and Home & Garden
-4. Review AI upsell conversion rate via gemini_upsell_strategy + upsell_status fields
-5. Shift Clothing mix toward premium lines (WildRoots, TrueBlend, CloudDrape) to raise ASP from $89
+**Data**
 
-## Top 5 Actions for CTO
-1. Investigate why max order_date is 2024-12-31 — confirm data scope vs pipeline gap
-2. Register referential integrity test in dataform_assertions for daily monitoring
-3. Add data freshness SLA alert: RED if fct_orders max_order_date > 2 days behind CURRENT_DATE()
-4. Monitor stg_order_items query costs — largest table at 2.66M rows
-5. Confirm fct_orders 1:1 row match with stg_orders is intentional (no cancelled order filtering)
+| Product | Margin % | Revenue per Unit | Units Sold |
+|---|---|---|---|
+| CrystalBit Pro Cameras 102 | 64.8% | $936 | 240 |
+
+**Business Interpretation**
+
+The CrystalBit Pro Cameras 102 is a textbook hidden gem: 64.8% gross margin at $936 per unit, but only 240 units sold. This product is almost certainly under-promoted and under-distributed. It does not appear in the top 20 revenue leaderboard by volume, which is precisely why it gets overlooked in standard product reviews. The AI Upsell Intelligence page is designed to surface exactly this type of product — high-margin items that Gemini flags as upsell or accessory add-on candidates for customers already in adjacent categories. The CPO should brief the merchandising team to run a targeted promotion on CrystalBit Pro Cameras 102 within the current quarter.
+
+**Recommended Dashboard Chart**
+
+CPO Page 2: Product Leaderboard — Top 20 Products Table. CPO Page 3: AI Upsell Intelligence — Enriched Product Table (filter by margin % descending to surface hidden gems).
+
+**Conversation Bot Q&A**
+
+*Q: Are there any high-margin products we are underexploiting?*
+A: Yes — CrystalBit Pro Cameras 102 has a 64.8% gross margin at $936 per unit but only 240 units sold. It is not in the top 20 revenue table, which is why it gets missed in standard reviews. Gemini classifies it as a Premium Upgrade and Accessory Add-on target. Would you like the list of customers currently in Camera-adjacent categories who have not purchased it?
 
 ---
 
-*Report generated by automated BQ analysis pipeline. All figures are point-in-time as of query execution on 2026-03-25. For live figures, re-run queries against current data.*
+### CPO-5: Sub-Category and Volume Analysis
+
+> Dashboard reference: CPO Page 2, Product Leaderboard — Sub-Category Bar
+
+**Data**
+
+The sub-category bar chart on Page 2 shows the distribution of units and revenue across all product sub-categories. Clothing sub-categories dominate unit volume. Electronics sub-categories dominate revenue and margin.
+
+**Business Interpretation**
+
+The divergence between unit volume and revenue across sub-categories is the key analytical tension for the CPO. High-volume, low-revenue sub-categories (primarily Clothing) inflate warehouse and logistics costs without proportionate margin contribution. The CPO should use the sub-category bar to identify which sub-categories have volume without margin and evaluate whether rationalisation, repricing, or upsell enablement is the right response.
+
+**Recommended Dashboard Chart**
+
+CPO Page 2: Product Leaderboard — Sub-Category Bar chart (dual axis: units on one axis, revenue on the other, allowing visual identification of the volume-revenue gap).
+
+**Conversation Bot Q&A**
+
+*Q: Which sub-categories have the highest volume but lowest revenue contribution?*
+A: Clothing sub-categories carry the highest unit volumes (total Clothing: 226K units, $20M revenue) while Electronics sub-categories generate far higher revenue on lower unit counts. Would you like a ranked table of sub-categories sorted by revenue-per-unit ascending?
+
+---
+
+### CPO-6: AI Upsell Intelligence
+
+> Dashboard reference: CPO Page 3, AI Upsell Intelligence
+
+#### How to Use the Upsell Type Donut
+
+The Upsell Type Donut on Page 3 shows the distribution of Gemini-recommended upsell and cross-sell strategies across the product catalogue. The five strategy categories are: Bundle, Premium Upgrade, Accessory Add-on, Subscription, and Cross-Category. Each represents a distinct commercial motion requiring different creative, pricing, and operational support.
+
+The donut serves as a campaign planning tool for the CPO and merchandising team. Clicking a segment filters the Enriched Product Table below to show only the products tagged with that strategy, enabling direct extraction for campaign briefing. If Bundle is the dominant category, the merchandising team should prioritise bundle creation. If Premium Upgrade dominates, the team should focus on comparison content and tiered pricing pages.
+
+#### Which Categories Have the Best Upsell Coverage
+
+Electronics, as the highest-revenue category, should have the highest absolute upsell coverage by count. The Category x Upsell Type Heatmap (a pivot table with categories as rows and upsell types as columns, with product count or revenue as the cell value) makes this immediately visible. Categories with sparse heatmap cells — low upsell coverage — are areas where the Gemini enrichment pipeline may need to be retrained or where catalogue data quality is insufficient for AI recommendation.
+
+The CPO should target greater than 95% upsell coverage across all products in Electronics and Clothing, given their revenue and volume significance respectively.
+
+#### How to Find Hidden Gems Using the AI Table
+
+The Enriched Product Table on Page 3 includes the `cross_sell` and `upsell` fields from the `product_upsell` table — Gemini-generated JSON objects parsed into readable columns. To find hidden gems, sort the table by margin % descending and filter to products with fewer than 1,000 units sold. This surfaces high-margin, low-volume products that Gemini has identified as upsell or premium upgrade candidates.
+
+The CrystalBit Pro Cameras 102 is the prototype example: 64.8% margin, $936 per unit, 240 units sold. It would appear near the top of this filtered view, accompanied by Gemini's specific recommendation for which customer segment and adjacent category to target.
+
+#### Cross-Sell vs Upsell Interpretation
+
+The `product_upsell` table stores two distinct Gemini fields:
+
+- **`upsell`**: A recommendation to move the customer to a higher-value version of a product they have already purchased or considered. Example: a customer who bought a mid-range NovaTech laptop is recommended a PulseGear premium laptop. The value driver is higher ASP on a familiar category.
+
+- **`cross_sell`**: A recommendation to introduce the customer to a complementary product in a different category or sub-category. Example: a customer who bought a camera is recommended a tripod, memory card, or camera bag. The value driver is basket size expansion and category depth.
+
+In practice, Premium Upgrade and Subscription strategies map to upsell behaviour, while Bundle, Accessory Add-on, and Cross-Category strategies map to cross-sell behaviour. The donut split between these two groups tells the CPO whether the opportunity skews toward deepening existing category relationships (upsell) or broadening category engagement (cross-sell).
+
+**Recommended Dashboard Chart**
+
+CPO Page 3: AI Upsell Intelligence — Upsell Type Donut (Gemini category distribution) and Enriched Product Table (product, category, margin %, units sold, upsell strategy, cross_sell strategy).
+
+**Conversation Bot Q&A**
+
+*Q: What upsell strategies has Gemini recommended for Electronics products?*
+A: For Electronics, Gemini's most common recommendations are Premium Upgrade (upgrading mid-tier devices to premium tier) and Bundle (pairing devices with accessories). Electronics has the highest upsell coverage in the catalogue given its margin profile. Would you like the specific product list with upsell targets?
+
+*Q: Which products are best suited for cross-sell campaigns right now?*
+A: Based on the Enriched Product Table, products in the Camera and Audio sub-categories show the strongest Cross-Category and Accessory Add-on signals from Gemini. The CrystalBit Pro Cameras 102 (64.8% margin, $936/unit) is flagged as a high-priority cross-sell target for customers in Electronics who have not yet purchased in Camera. Would you like the customer segment match list?
+
+---
+
+## PART 3 — CTO INTELLIGENCE
+
+---
+
+### CTO-1: Data Freshness
+
+> Dashboard reference: CTO Page 1, Pipeline Overview — Run Count and Duration Scorecards; Table by Entity
+
+**Data**
+
+The Pipeline Overview dashboard surfaces run counts, success rates, rows merged, and duration metrics for the Dataform pipeline. The daily refresh workflow runs in three phases: Phase 1 (tag=daily_refresh: bronze to silver to gold plus product AI shards), Phase 2 (Cloud Run customer AI processor writing to ai.customer_ai_raw), and Phase 3 (tag=ai_aggregate: customer_concierge to ai_enriched_profiles to mart_executive_summary_enriched).
+
+**Business Interpretation**
+
+Data freshness is the foundation of every insight in this report. If the daily refresh workflow fails at Phase 1, gold tables are stale. If Phase 2 fails, the AI Retention and AI Upsell pages show yesterday's (or older) Gemini outputs. The CTO must treat Phase 2 failures as business-critical incidents because they cascade into the CCO and CPO dashboards losing their AI intelligence layer.
+
+**Recommended Dashboard Chart**
+
+CTO Page 1: Pipeline Overview — Time Series of Runs (run count over time, colour-coded by success/failure) and Table by Entity (one row per Dataform table, showing last successful run timestamp).
+
+**Conversation Bot Q&A**
+
+*Q: When did the pipeline last run successfully?*
+A: The Pipeline Overview table shows the last successful run timestamp for each entity. If any table shows a last run timestamp more than 26 hours ago, it is outside the daily refresh SLA and should be investigated. Would you like me to list the tables currently outside SLA?
+
+---
+
+### CTO-2: Referential Integrity
+
+> Dashboard reference: CTO Page 1, Pipeline Overview — Rows Merged Scorecard and Table by Entity
+
+**Data**
+
+The delta layer (`delta_customers.sqlx`, `delta_products.sqlx`) executes MERGE operations into gold dimension tables. The rows merged scorecard on the Pipeline Overview tracks how many records were upserted in each run. The governance layer (audit log, schema change log) provides a historical record of all schema changes.
+
+**Business Interpretation**
+
+Referential integrity failures — where a foreign key in a fact table does not resolve to a record in a dimension table — will cause silent errors in gold layer joins, producing incorrect revenue and customer counts in all downstream dashboards. The CTO should validate that the delta MERGE success rate is consistent with expectations and that orphaned records are not accumulating in fact tables.
+
+**Recommended Dashboard Chart**
+
+CTO Page 1: Pipeline Overview — Rows Merged Scorecard (total MERGE operations in the current run cycle) and Table by Entity (rows merged per table per run).
+
+**Conversation Bot Q&A**
+
+*Q: Are there any data integrity issues in the current pipeline run?*
+A: The Pipeline Overview table shows rows merged per entity. If any delta table shows zero rows merged when upstream source data has changed, that is a likely MERGE failure. The governance audit log provides a detailed record of all schema and data changes. Would you like me to check the audit log for the last 7 days?
+
+---
+
+### CTO-3: AI Pipeline Health
+
+> Dashboard reference: CTO Page 1, Pipeline Overview — Success Rate Scorecard
+
+#### Generation Status Success Rate Target
+
+The AI pipeline generates Gemini outputs through two parallel pathways. The product AI pathway uses four BQ ML shards (`product_ai_1` through `product_ai_4`) executing `ML.GENERATE_TEXT` against the `gemini-2.5-flash` model via the `gemini-pro-connection` endpoint in `australia-southeast1`. Each shard writes to a staging table, and the results are aggregated into `product_upsell` in Phase 1. The customer AI pathway uses the Cloud Run `customer-ai-processor` service (50 concurrent Gemini calls, gunicorn timeout 1800s) to write to `ai.customer_ai_raw` in Phase 2.
+
+The target `generation_status` success rate is greater than 95% for both pathways. This means that of all rows submitted to Gemini, at least 95% must return a valid JSON response that passes the `REGEXP_EXTRACT(raw_text, r'\{[\s\S]*\}')` extraction and `JSON_VALUE` parsing chain. Rows below this threshold indicate either model timeout, malformed input, or connection quota exhaustion.
+
+The CTO should monitor the success rate scorecard on the Pipeline Overview page after every Phase 1 and Phase 2 completion. A rate between 90% and 95% warrants investigation. A rate below 90% should trigger an immediate pipeline halt and root cause analysis before Phase 3 runs — because Phase 3 aggregates the AI outputs into `mart_executive_summary_enriched`, and a degraded input will produce a degraded executive dashboard.
+
+#### What to Do If ai_status Returns an Error on customer_concierge
+
+The `customer_concierge` table is populated in Phase 3 from `ai.customer_ai_raw`. If a row in `customer_ai_raw` has an `ai_status` field containing a non-empty string (i.e., BQ ML returned an error message rather than an empty string signalling success), that row should be excluded from the `customer_concierge` aggregation. The BQ ML success filter `WHERE status = ''` (empty string) enforces this — rows with any error text in the status field are filtered out.
+
+The diagnostic steps when `ai_status` errors appear are:
+
+1. Check the Cloud Run logs for `customer-ai-processor` in `australia-southeast1` for timeout or quota errors.
+2. Verify that the `gemini-pro-connection` in BigQuery has not hit its regional request quota for the day.
+3. If the error rate is isolated to specific `customer_id` ranges, check whether those customers have malformed or null input fields (e.g., null `customer_segment`, null purchase history).
+4. Re-trigger Phase 2 for failed batches by resubmitting the Cloud Run POST `/process` endpoint with the affected customer IDs.
+5. After remediation, re-run Phase 3 (`tag=ai_aggregate`) to refresh `customer_concierge`, `ai_enriched_profiles`, and `mart_executive_summary_enriched`.
+
+Do not allow Phase 3 to run with more than 5% of `customer_ai_raw` rows in error state — the downstream mart will silently undercount AI coverage and distort the Revenue at Risk scorecard on the CCO dashboard.
+
+#### How to Monitor BQ ML Job Costs
+
+BQ ML `ML.GENERATE_TEXT` calls against `gemini-2.5-flash` are billed per 1,000 characters of input and output. The four product AI shards (`product_ai_1-4`) each process a subset of the product catalogue; the shard design was intentional to stay within per-job character limits and to enable parallel execution.
+
+To monitor costs:
+
+- Navigate to BigQuery Job History in the GCP Console under project `vishal-sandpit-474523`.
+- Filter by job type: ML and date range of the last 7 days.
+- Review the `bytes_billed` and `slot_hours` columns for each ML job.
+- Cross-reference against the Cloud Billing export in BigQuery if the Looker Studio billing dashboard is available.
+
+The CTO should establish a weekly cost baseline for BQ ML jobs after the first four weeks of production operation and set a budget alert in Cloud Billing at 120% of that baseline to catch unexpected spikes. Common causes of cost spikes include: input schema changes that inadvertently widen the prompt, model version upgrades that increase output verbosity, or accidental re-execution of shards outside the daily schedule.
+
+**Recommended Dashboard Chart**
+
+CTO Page 1: Pipeline Overview — Success Rate Scorecard (percentage of rows with `generation_status = ''`), Run Count Scorecard, and Duration Scorecard (to detect performance degradation).
+
+**Conversation Bot Q&A**
+
+*Q: What is the current AI pipeline success rate?*
+A: The Pipeline Overview Success Rate scorecard shows the percentage of BQ ML and Cloud Run Gemini calls that returned a valid response in the last run cycle. The target is above 95%. If you are seeing a rate below that threshold, check the Cloud Run logs for customer-ai-processor and the BQ ML job history for product_ai_1 through product_ai_4. Would you like the diagnostic checklist?
+
+*Q: How much did the BQ ML jobs cost in the last 7 days?*
+A: BQ ML job costs for the last 7 days can be retrieved from the BigQuery Job History under project vishal-sandpit-474523, filtering for ML job type. Would you like me to provide the exact query to pull this from the Cloud Billing export table?
+
+*Q: What should I do if Phase 3 fails to run after Phase 2 completes?*
+A: First, verify that ai.customer_ai_raw has been fully populated by Phase 2 — check the row count against the expected customer volume. If the row count is correct, check the generation_status distribution: if more than 5% of rows have a non-empty status string, hold Phase 3 and remediate Phase 2 first. If row counts and status are clean, re-trigger the ai_aggregate tag in Dataform manually via the Cloud Workflows console. Would you like the Dataform CLI command to do this?
+
+---
+
+## PART 4 — CONVERSATIONAL BOT USAGE GUIDE
+
+The Conversational Bot combines two capabilities: the BigQuery Data Agent (which can query live BigQuery tables directly) and the Looker Studio Gemini integration (which can explain, filter, and summarise the dashboard currently open). Together they allow C-suite stakeholders to ask natural language questions and receive data-grounded answers without navigating raw SQL.
+
+---
+
+### CCO Bot Questions
+
+**Q1: How much revenue is at risk from churning customers right now?**
+Expected answer: Approximately $15.8M is currently at risk from customers classified as Cooling or At Risk. The largest concentration is in the Platinum segment (366 customers, $1,413 average order value). Gemini has generated personalised win-back and loyalty strategies for each. Would you like to see the top 20 by revenue exposure?
+
+**Q2: Which country had the worst revenue performance last month?**
+Expected answer: India declined -6.79% month-on-month in December 2024, making it the weakest performing major market. Australia followed at -5.74%. Mexico and Brazil were the only major markets in positive territory at +6.76% and +4.43% respectively. Would you like to compare against the same period last year?
+
+**Q3: What is our repeat purchase rate and how does it compare to new customers?**
+Expected answer: Returning customers (77,018) average 4.32 orders each. New customers (2,556) average 1.01 orders. The repeat rate reflects a mature, retention-led business model. However, new customer acquisition has declined 27% from its October 2024 peak of 430 to 306 in December. Would you like the acquisition trend by country?
+
+**Q4: Which customer segment has the highest concentration of at-risk revenue?**
+Expected answer: Platinum At Risk — 366 customers with a $1,413 average order value — represents the highest-density revenue risk cell in the churn matrix. Gold At Risk (1,087 customers, $1,216 AOV) is the second priority. The Segment x Risk Heatmap on Page 3 shows the full matrix. Would you like Gemini's strategy recommendations for the Platinum cohort?
+
+**Q5: What retention strategy does Gemini recommend for a specific customer?**
+Expected answer: Open the AI Persona Spotlight table on CCO Page 3, search by customer_id, and read the gemini_insight column. The first sentence describes the customer's behavioural persona; the second provides the specific CRM action recommended. If you share the customer_id here, I can retrieve the exact strategy from the customer_concierge table. Would you like to try one now?
+
+---
+
+### CPO Bot Questions
+
+**Q1: Which product category has the best combination of revenue and margin?**
+Expected answer: Electronics is the Star category — $153M in revenue at a 49.8% gross margin. No other category comes close on both dimensions simultaneously. Clothing has the highest unit volume (226K units) but only $20M in revenue, reflecting a low average selling price. Would you like the full category margin table?
+
+**Q2: Which brand delivers the most revenue per buyer?**
+Expected answer: PulseGear leads at $1,597 revenue per buyer across approximately $12.6M in total revenue — a premium niche positioning. NovaTech has the widest reach at 9,978 buyers but at $739 per buyer. The strategic opportunity is to migrate NovaTech buyers into PulseGear product families. Would you like the product overlap between these two brands?
+
+**Q3: Are there any high-margin products we are not promoting enough?**
+Expected answer: Yes — CrystalBit Pro Cameras 102 carries a 64.8% gross margin at $936 per unit but has sold only 240 units. It does not appear in the top 20 revenue leaderboard, which is why it is typically overlooked. Gemini classifies it as a Premium Upgrade target. Would you like the customer list for customers in adjacent categories who have not yet purchased this product?
+
+**Q4: How many customers have only bought from one product category?**
+Expected answer: 12,052 customers — 15.4% of the total base — have purchased from only one of eight available categories. These are the highest-priority cross-sell targets in the base. Gemini's Cross-Category strategy type covers many of these customers in the AI Upsell page. Would you like to know which single categories they are concentrated in?
+
+**Q5: What upsell strategies has AI generated for the Electronics category?**
+Expected answer: For Electronics, Gemini's most frequent recommendations are Premium Upgrade (moving mid-tier buyers to premium device tiers) and Bundle (pairing devices with accessories such as cases, cables, and peripherals). The Upsell Type Donut on Page 3 shows the full strategy distribution. Would you like the enriched product table filtered to Electronics only?
+
+---
+
+### CTO Bot Questions
+
+**Q1: When did the pipeline last run successfully and are all tables up to date?**
+Expected answer: The Pipeline Overview table on Page 1 shows the last successful run timestamp for each entity. Tables are considered within SLA if the last run timestamp is less than 26 hours ago. Any table outside this window should be flagged for investigation. Would you like me to query the Dataform run history directly from BigQuery?
+
+**Q2: What is the current AI generation success rate and is it above the 95% threshold?**
+Expected answer: The Success Rate scorecard on Page 1 shows the current generation_status success rate. The target is above 95%. If the rate is between 90% and 95%, investigation is warranted. Below 90% should trigger a pipeline hold before Phase 3 runs. Would you like the diagnostic steps for below-threshold rates?
+
+**Q3: How do I re-run only the AI pipeline phases if the daily refresh has already completed?**
+Expected answer: To re-run Phase 2 only, resubmit the Cloud Run POST /process endpoint via the delta-ingest-workflow or manually via the Workflows console. To re-run Phase 3 only, trigger the Dataform ai_aggregate tag via the Cloud Workflows console or with the Dataform CLI: `dataform run --tags ai_aggregate`. Do not re-run Phase 1 unless source data has changed — doing so will overwrite silver and gold tables unnecessarily. Would you like the exact Dataform CLI command?
+
+---
+
+### How to Phrase Questions for Best Results
+
+- **Be specific about the time period**: "in December 2024" or "over the last 24 months" gives better results than "recently" or "lately."
+- **Name the segment or category**: "Platinum customers" or "Electronics category" produces a direct data lookup rather than a broad scan.
+- **Ask for a ranked list**: "Which top 5 customers by revenue are at risk?" is more actionable than "Who are the at-risk customers?"
+- **Follow up with a why**: After receiving a number, ask "Why is this happening?" — the bot will attempt to surface correlating factors from the enriched mart tables.
+- **Request the Gemini strategy explicitly**: If you want the AI-generated recommendation, ask "What does Gemini recommend for this customer/product?" — the bot will pull from the persona or upsell field directly.
+
+---
+
+### What the Bot Cannot Answer (Limitations)
+
+- **Real-time data**: The bot queries BigQuery tables that are refreshed once daily. It cannot reflect intraday changes or live transactional data.
+- **Causal inference**: The bot can surface correlations (e.g., Platinum churn is higher in AU than IN) but cannot confirm causation without additional analytical modelling.
+- **Predictive forecasting**: Revenue at Risk is a descriptive classification, not a predictive model. The bot cannot forecast what revenue will be next quarter.
+- **External benchmarks**: The bot has no access to industry benchmarks, competitor data, or market context. All comparisons are internal.
+- **Schema changes**: If a Dataform schema migration has occurred and the mart tables have not been rebuilt, the bot may return stale or incorrect column references. The CTO should notify stakeholders after any schema change and trigger a full pipeline refresh.
+- **Private customer PII**: The bot will return customer_id fields but should not be used to display or share full personally identifiable information outside of approved CRM workflows.
+
+---
+
+## APPENDIX — Dashboard-to-Report Cross Reference
+
+| Dashboard | Page | Page Name | Report Section(s) |
+|---|---|---|---|
+| CCO | Page 1 | Revenue Overview | CCO-1: Revenue Concentration, CCO-4: Country MoM, CCO-5: Repeat Purchase Pattern |
+| CCO | Page 2 | Customer Breakdown | CCO-2: Segment Trend, CCO-3: Churn-Revenue Matrix, CCO-4: Country MoM |
+| CCO | Page 3 | AI Retention Intelligence | CCO-3: Churn-Revenue Matrix (heatmap), CCO-6: AI Retention Intelligence |
+| CPO | Page 1 | Category Performance | CPO-1: Category Revenue Performance, CPO-3: Cross-Sell Depth |
+| CPO | Page 2 | Product Leaderboard | CPO-2: Brand Performance, CPO-4: Product Leaderboard and Hidden Gems, CPO-5: Sub-Category and Volume Analysis |
+| CPO | Page 3 | AI Upsell Intelligence | CPO-3: Cross-Sell Depth, CPO-4: Hidden Gems, CPO-6: AI Upsell Intelligence |
+| CTO | Page 1 | Pipeline Overview | CTO-1: Data Freshness, CTO-2: Referential Integrity, CTO-3: AI Pipeline Health |
+| All | — | Conversational Bot | Part 4: Conversational Bot Usage Guide |
+
+---
+
+*Document generated for Intelia Business-in-a-Box | GCP Project: vishal-sandpit-474523 | Region: australia-southeast1*
