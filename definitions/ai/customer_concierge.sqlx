@@ -10,7 +10,7 @@ SELECT
   customer_id,
   persona,
   strategy,
-  generated_at,
+  CURRENT_TIMESTAMP()       AS generated_at,
   CONCAT(
     'Persona: ',   COALESCE(persona,   'Valued customer'),
     '\nStrategy: ', COALESCE(strategy, 'Monitor engagement')

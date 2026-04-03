@@ -26,7 +26,7 @@ SELECT
   product_id,
   cross_sell,
   upsell,
-  generated_at,
+  CURRENT_TIMESTAMP()       AS generated_at,
   CONCAT('Cross-sell: ', COALESCE(cross_sell, 'No cross-sell strategy'), '\nUpsell: ', COALESCE(upsell, 'Basic upsell')) AS gemini_upsell_strategy,
   status AS generation_status
 FROM unioned
