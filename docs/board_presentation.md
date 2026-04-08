@@ -29,41 +29,6 @@ A **production-grade, AI-first data warehouse** on Google Cloud that:
 
 ![Architecture Diagram](Board.png)
 
-```
-GCS Source Data                 BigQuery Medallion               AI Enrichment
-─────────────────               ─────────────────────            ──────────────
-customers.csv        ──►  Bronze (External Tables)
-orders.csv           ──►  │  Schema-on-read, no copy    ──►  Silver (Cleaned)
-order_items.csv      ──►  │  Idempotent MERGE engine          │  Type-safe, PII tagged
-products.csv         ──►  └─ Event-driven delta workflow       │  Data quality asserted
-                                                               ▼
-                                                         Gold (Business-Ready)
-                                                         dim_customers, fct_orders
-                                                         mart_revenue_summary
-                                                               │
-                                          ┌────────────────────┘
-                                          │
-                         ┌────────────────┴──────────────────────┐
-                         │  PHASE 1 — BQ ML (product AI)         │
-                         │  ML.GENERATE_TEXT (Gemini 2.5 Flash)  │
-                         │  product_ai_1-4 shards → product_upsell│
-                         ├───────────────────────────────────────┤
-                         │  PHASE 2 — Cloud Run (customer AI)    │
-                         │  BQ ML chunked: 1000 rows/job,        │
-                         │  10 concurrent → customer_ai_raw      │
-                         ├───────────────────────────────────────┤
-                         │  PHASE 3 — Dataform (ai_aggregate)    │
-                         │  customer_concierge                   │
-                         │  ai_enriched_profiles                 │
-                         │  mart_executive_summary_enriched      │
-                         └──────────────────┬────────────────────┘
-                                            │
-              ┌─────────────────────────────┼──────────────────────┐
-              ▼                             ▼                      ▼
-        Looker Studio               BQ Data Agent           BQ Canvas
-        CCO / CPO / CTO             Plain English Q&A       Live Exploration
-```
-
 ---
 
 ## Time-to-Insight: Before vs After
