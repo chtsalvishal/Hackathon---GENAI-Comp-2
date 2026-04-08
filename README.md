@@ -55,8 +55,11 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 │   │                 │   │  │  POST /process → 202 (fire-and-forget)│  │
 │   ▼                 │   │  │      │                                │  │
 │  MERGE into         │   │  │      ▼                                │  │
-│  gold dim_customers │   │  │  Reads gold.dim_customers_analyst     │  │
-│  gold dim_products  │   │  │      │                                │  │
+│  gold.dim_customers │   │  │  Reads gold.dim_customers_analyst     │  │
+│  gold.dim_products  │   │  │      │                                │  │
+│  gold.fct_orders    │   │  │                                       │  │
+│  silver.stg_order_  │   │  │                                       │  │
+│    items            │   │  │                                       │  │
 │   │                 │   │  │      ▼                                │  │
 │   ▼                 │   │  │  BQ ML (ML.GENERATE_TEXT)             │  │
 │  governance.        │   │  │  CHUNK_SIZE=1000, CHUNK_PARALLEL=10   │  │
@@ -170,7 +173,7 @@ Event-driven MERGE operations that mirror silver normalisation exactly. Triggere
 |-------|--------|-----|
 | `product_ai_1-4` | `dim_products` | BQ ML `ML.GENERATE_TEXT`, FARM_FINGERPRINT sharding |
 | `product_upsell` | product_ai_1-4 | Union of shards |
-| `customer_ai_raw` | `dim_customers_analyst` | Cloud Run async Python (temp — dropped after next step) |
+| `customer_ai_raw` | `dim_customers_analyst` | Cloud Run BQ ML chunked (temp — dropped after next step) |
 | `customer_concierge` | `customer_ai_raw` | Reads raw, drops temp table via `post_operations` |
 | `ai_enriched_profiles` | `dim_customers` + `customer_concierge` | Full enrichment join |
 | `mart_executive_summary_enriched` | `mart_executive_summary` + `customer_concierge` | AI-enhanced executive view |
@@ -226,7 +229,7 @@ Cloud Run orchestrates BQ ML `ML.GENERATE_TEXT` in parallel chunks to bypass sin
 │   └── governance/           # Audit, lineage, glossary
 ├── cloudrun/
 │   └── customer_ai/
-│       ├── main.py           # Flask + async Gemini processor
+│       ├── main.py           # Flask + BQ ML chunked processor
 │       ├── Dockerfile
 │       └── requirements.txt
 ├── terraform/
