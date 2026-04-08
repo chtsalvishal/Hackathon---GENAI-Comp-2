@@ -8,7 +8,7 @@ A production-grade, fully automated, AI-enriched BigQuery data warehouse deploya
 
 Transforms raw CSV data landing in Google Cloud Storage into governed, AI-enriched, executive-ready insights — with zero analyst intervention and full data lineage — in under 30 minutes from cold start.
 
-Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention strategy**. Every product gets an AI-generated **upsell recommendation**. C-suite dashboards are refreshed automatically every day.
+Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention strategy** — processed via Cloud Run-orchestrated BQ ML chunks. Every product gets an AI-generated **upsell recommendation** via BQ ML sharding. C-suite dashboards are refreshed automatically every day.
 
 ---
 
@@ -70,8 +70,8 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 │  │  Reads BigQuery gold.dim_customers_analyst                  │   │
 │  │      │                                                      │   │
 │  │      ▼                                                      │   │
-│  │  Vertex AI — Gemini 2.5 Flash                               │   │
-│  │  200 concurrent async calls (Python asyncio)                │   │
+│  │  BigQuery ML (ML.GENERATE_TEXT) — Gemini 2.5 Flash          │   │
+│  │  CHUNK_SIZE=1000 rows/job, CHUNK_PARALLEL=10 concurrent     │   │
 │  │      │                                                      │   │
 │  │      ▼                                                      │   │
 │  │  Writes BigQuery ai.customer_ai_raw (WRITE_TRUNCATE)        │   │
@@ -131,8 +131,8 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 |---------|------|
 | **BigQuery** | Central data warehouse — bronze/silver/gold/ai/governance datasets; BQ ML for product AI inference via `ML.GENERATE_TEXT` |
 | **Dataform** | Git-backed SQL pipeline — tag-based invocations, all outputs materialised as tables |
-| **Cloud Run** | Async Python Gemini processor — 200 concurrent calls, fire-and-forget architecture, writes customer AI results |
-| **Vertex AI** | Gemini 2.5 Flash model endpoint — called by both Cloud Run (customer AI) and BigQuery ML (product AI) |
+| **Cloud Run** | BQ ML-orchestrated Python processor — splits customers into 1000-row chunks, runs 10 concurrent BQ ML jobs, fire-and-forget architecture, writes customer AI results |
+| **Vertex AI** | Gemini 2.5 Flash model endpoint — called by BigQuery ML for both product AI and customer AI |
 | **Cloud Workflows** | Pipeline orchestrator — 3-phase daily refresh and event-driven delta ingestion |
 | **Eventarc** | Triggers delta-ingest-workflow on GCS `object.finalize` events |
 | **Cloud Pub/Sub** | Event bus between GCS file notifications and Eventarc |
@@ -151,7 +151,7 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 |-----------|------------|
 | Infrastructure-as-Code | Terraform >= 1.4, `hashicorp/google ~> 5.0` |
 | SQL Pipeline | Dataform SQLX (BigQuery Standard SQL) |
-| Customer AI service | Python 3.12, Flask, `google-cloud-aiplatform`, asyncio + ThreadPoolExecutor |
+| Customer AI service | Python 3.12, Flask, `google-cloud-bigquery`, ThreadPoolExecutor (BQ ML chunked approach) |
 | Container runtime | Cloud Run v2, gunicorn, always-on single instance |
 | CI/CD config | Cloud Build YAML |
 
@@ -188,10 +188,13 @@ Event-driven MERGE operations that mirror silver normalisation exactly. Triggere
 | `mart_executive_summary_enriched` | `mart_executive_summary` + `customer_concierge` | AI-enhanced executive view |
 
 ### Governance
-- `batch_audit_log` — idempotency check + pipeline run tracking
+- `batch_audit_log` — idempotency check + delta MERGE audit rows (`type: "operations"`, `CREATE TABLE IF NOT EXISTS` — Dataform never wipes existing rows)
 - `schema_change_log` — new column detection on delta arrivals
 - `business_glossary` — queryable term definitions
-- `rpt_cto_dashboard` — pipeline run history for Looker Studio
+- `rpt_cto_dashboard` — three sources unioned for the CTO Looker Studio dashboard:
+  1. `INFORMATION_SCHEMA.JOBS` — every BQ job run by the Dataform SA (90-day window)
+  2. `batch_audit_log` — delta MERGE audit rows with row counts and durations
+  3. Live DQ assertion checks — `dim_customers`, `fct_orders`, `dim_products`, `mart_revenue_summary` violation counts
 
 ---
 
@@ -200,16 +203,16 @@ Event-driven MERGE operations that mirror silver normalisation exactly. Triggere
 ### Product AI (BigQuery ML)
 BQ ML `ML.GENERATE_TEXT` with Gemini 2.5 Flash remote model. Products sharded into 4 groups via `FARM_FINGERPRINT(product_id) MOD 4` to run in parallel, then unioned into `product_upsell`.
 
-### Customer AI (Cloud Run async)
-Replaced BQ ML to overcome the 6 RPS quota ceiling:
+### Customer AI (Cloud Run + BQ ML chunked)
+Cloud Run orchestrates BQ ML `ML.GENERATE_TEXT` in parallel chunks to bypass single-query row limits:
 
 1. Cloud Workflow sends `POST /process` — returns **202 immediately**
-2. Background thread launches 200 concurrent async Gemini 2.5 Flash calls
-3. Workflow polls `GET /status` every 30 seconds
-4. Results written to `ai.customer_ai_raw` via **WRITE_TRUNCATE** load job (atomic, no duplicates)
-5. Dataform builds `customer_concierge`, then drops `customer_ai_raw` via `post_operations`
-
-**Throughput**: ~200 RPS sustained vs BQ ML's ~6 RPS — 33× faster.
+2. Background thread reads all customers from `dim_customers_analyst`, splits into `CHUNK_SIZE=1000` row chunks
+3. `CHUNK_PARALLEL=10` chunks processed concurrently via `ThreadPoolExecutor` — each BQ ML job handles its own internal parallelism
+4. Workflow polls `GET /status` every 30 seconds
+5. All results written atomically to `ai.customer_ai_raw` via **WRITE_TRUNCATE** load job (no duplicates)
+6. Dataform builds `customer_concierge`, then drops `customer_ai_raw` via `post_operations`
+7. Legacy `customer_ai_1-4` shard tables are dropped automatically post-run
 
 ---
 
@@ -258,6 +261,8 @@ Replaced BQ ML to overcome the 6 RPS quota ceiling:
 │       ├── vertex_ai/        # Metadata store (validates aiplatform API)
 │       ├── cloud_build/      # CI/CD triggers
 │       └── cloud_scheduler/  # (intentionally empty — no scheduled refresh)
+├── looker_studio/
+│   └── build_guide.md        # Step-by-step guide to build CCO/CPO/CTO dashboards in Looker Studio
 ├── cloudbuild-validate.yaml  # PR: fmt-check + validate + dataform compile
 ├── cloudbuild-deploy.yaml    # Merge: terraform apply + trigger workflow
 ├── dataform.json             # Dataform project config
@@ -329,7 +334,7 @@ gcloud workflows run daily-refresh-workflow \
 
 **Fire-and-forget customer AI** — Cloud Workflows has a hard 1800s synchronous HTTP timeout. The Cloud Run `/process` endpoint returns 202 immediately; the workflow polls `/status` every 30s. Eliminates any timeout risk regardless of dataset size.
 
-**BQ ML for products, Cloud Run for customers** — Product AI (4 BQ ML shards) completes in under 2 minutes. Customer AI at scale hit BQ ML's 6 RPS quota ceiling; Cloud Run async delivers 200 RPS sustained — 33× faster.
+**BQ ML for both products and customers, Cloud Run for orchestration** — Product AI runs 4 BQ ML shards directly in Dataform (Phase 1). Customer AI uses Cloud Run to split the full customer table into 1000-row chunks and run up to 10 BQ ML jobs concurrently — bypassing single-query row limits while keeping all inference inside BigQuery ML.
 
 **WRITE_TRUNCATE for customer_ai_raw** — The Cloud Run load job atomically replaces the entire table each run. No stale data, no duplicates, no explicit DELETE needed.
 

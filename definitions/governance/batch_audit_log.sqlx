@@ -1,19 +1,18 @@
 config {
-  type: "table",
+  type: "operations",
   schema: "governance",
-  description: "Idempotency tracking and observability log for all delta batch runs. One row per batch execution attempt.",
+  description: "Idempotency tracking and observability log for all delta batch runs. One row per batch execution attempt. Uses CREATE TABLE IF NOT EXISTS so Dataform never wipes existing audit rows.",
   tags: ["governance"],
-  bigquery: {
-    partitionBy: "DATE(started_at)",
-    clusterBy: ["entity", "status"]
-  }
+  hasOutput: false
 }
 
--- This table is seeded as an empty scaffold.
--- All rows are inserted at runtime by delta MERGE operations.
--- The WHERE FALSE ensures no rows are materialised on creation,
--- while the schema is established by the SELECT column list.
-
+-- CREATE TABLE IF NOT EXISTS prevents Dataform from overwriting rows on every run.
+-- All rows are inserted at runtime by delta MERGE operations in definitions/delta/*.sqlx.
+CREATE TABLE IF NOT EXISTS `vishal-sandpit-474523.governance.batch_audit_log`
+PARTITION BY DATE(started_at)
+CLUSTER BY entity, status
+OPTIONS (require_partition_filter = false)
+AS
 SELECT
   CAST(NULL AS STRING)    AS batch_id,
   CAST(NULL AS STRING)    AS source_file,
@@ -26,4 +25,4 @@ SELECT
   CAST(NULL AS TIMESTAMP) AS started_at,
   CAST(NULL AS TIMESTAMP) AS completed_at,
   CAST(NULL AS STRING)    AS dataform_run_id
-LIMIT 0
+WHERE FALSE

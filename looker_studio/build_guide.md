@@ -769,9 +769,17 @@ Three scorecards, **300 × 100 px** each, starting at X=100, spaced 40px apart.
 
 **Persona:** Chief Technology Officer
 **Source table:** `vishal-sandpit-474523.governance.rpt_cto_dashboard`
-**Row grain:** One row per pipeline run attempt (batch audit log)
+**Row grain:** Three row types unioned into one table:
 
-> **Note on data availability:** `rpt_cto_dashboard` is populated by delta pipeline MERGE runs. If the table is empty during build, add a static text box: "Awaiting first delta pipeline run — data will populate automatically." The dashboard structure is built now regardless.
+| Row type | How to identify | What it shows |
+|---|---|---|
+| Dataform pipeline jobs | `entity` = BQ table name e.g. `dim_customers`, `fct_orders` | Every BQ job the Dataform SA ran — status, duration, rows affected (90-day window from INFORMATION_SCHEMA.JOBS) |
+| Delta MERGE audit | `entity` = entity name e.g. `customers`, `orders` | Delta batch runs logged by delta_*.sqlx operations at runtime |
+| DQ assertion checks | `entity` starts with `ASSERTION:` | Live data quality results — COMPLETED = passing, ERROR = violations found with count in `error_message` |
+
+> **Data availability:** `rpt_cto_dashboard` is always populated — it sources from `INFORMATION_SCHEMA.JOBS` (90-day Dataform SA job history) and live assertion views. No pipeline run is required to see data. Delta audit rows accumulate over time as GCS file-drop events trigger the delta workflow.
+
+> **Status values:** `COMPLETED` (success) and `ERROR` (failure). These replace the former `SUCCESS`/`FAILED` values. Any existing Looker Studio formulas referencing `SUCCESS` or `FAILED` must be updated.
 
 ## Step 1 — Create the Report
 
@@ -785,29 +793,41 @@ https://lookerstudio.google.com/c/reporting/create?c.mode=CREATE&ds.connector=BI
 
 Verify field types:
 
-| Field name | Expected type |
-|---|---|
-| run_date | Date |
-| run_ts | Date & Time |
-| entity | Text |
-| status | Text |
-| source_file | Text |
-| rows_merged | Number |
-| rows_inserted | Number |
-| rows_updated | Number |
-| error_message | Text |
-| duration_secs | Number |
+| Field name | Expected type | Notes |
+|---|---|---|
+| run_date | Date | |
+| run_ts | Date & Time | |
+| entity | Text | BQ table name, delta entity, or `ASSERTION: <check>` |
+| status | Text | `COMPLETED` or `ERROR` |
+| source_file | Text | Populated for delta rows only; NULL for pipeline jobs and assertions |
+| rows_merged | Number | For assertions: violation count (0 = passing) |
+| rows_inserted | Number | |
+| rows_updated | Number | |
+| error_message | Text | For assertions: `"N DQ violation(s) detected"` if failing |
+| duration_secs | Number | NULL for assertion rows |
+| dataform_run_id | Text | BQ job_id for pipeline rows; `assertion-check` for DQ rows |
 
-> Note: The YAML spec references `batch_id` in the Success Rate calculated field formula. If this column does not exist in the view, substitute `COUNT(run_ts)` or `COUNT(entity)` instead. Check in BigQuery: `SELECT column_name FROM vishal-sandpit-474523.governance.INFORMATION_SCHEMA.COLUMNS WHERE table_name = 'rpt_cto_dashboard'`.
+> There is no `batch_id` column in this table. Use `COUNT(run_ts)` or `COUNT(entity)` in any calculated fields that previously referenced `COUNT(batch_id)`.
 
-## Step 3 — Add Calculated Field
+## Step 3 — Add Calculated Fields
 
-**Calculated field — Success Rate**
+**Calculated field — Success Rate** (pipeline jobs + delta rows only)
 
 - Name: `Success Rate`
-- Formula (if `batch_id` exists): `COUNTIF(status = 'SUCCESS') / COUNT(batch_id)`
-- Formula (if `batch_id` does NOT exist): `COUNTIF(status = 'SUCCESS') / COUNT(run_ts)`
+- Formula: `COUNTIF(status = 'COMPLETED') / COUNT(run_ts)`
 - Format: Percent (1 decimal place)
+
+**Calculated field — DQ Assertions Passing**
+
+- Name: `DQ Assertions Passing`
+- Formula: `COUNTIF(status = 'COMPLETED' AND REGEXP_MATCH(entity, '^ASSERTION:')) / COUNTIF(REGEXP_MATCH(entity, '^ASSERTION:'))`
+- Format: Percent (1 decimal place)
+
+**Calculated field — DQ Violations Total**
+
+- Name: `DQ Violations Total`
+- Formula: `SUM(IF(REGEXP_MATCH(entity, '^ASSERTION:') AND status = 'ERROR', rows_merged, 0))`
+- Format: Number
 
 ## Step 4 — Add Date Range Control
 
@@ -819,12 +839,15 @@ Insert > Date range control, top-right, default **Last 30 days**, dimension = `r
 
 Rename default page to `Pipeline Overview`.
 
+Add a **page-level filter** to exclude assertion rows from this page (assertions have their own page):
+- Resource > Manage filters > Add filter > `entity` > Does not contain > `ASSERTION:`.
+
 ### Top Row — 4 Scorecards
 
 Approx **240 x 90 px each**.
 
 **Scorecard 1 — Total Pipeline Runs**
-- Metric: `run_ts` — Count (or `batch_id` — Count if it exists).
+- Metric: `run_ts` — Count.
 - Label: `Total Pipeline Runs`.
 - Comparison: Previous period.
 
@@ -833,11 +856,11 @@ Approx **240 x 90 px each**.
 - Label: `Success Rate`.
 - Format: Percent, 1 decimal place.
 - Comparison: Previous period.
-- Style: Conditional color — if value < 95%, show label in red (`#EA4335`); if >= 95%, show in green (`#34A853`). (Set via scorecard "Comparison metric color" settings.)
+- Style: Conditional color — if value < 95%, show label in red (`#EA4335`); if >= 95%, show in green (`#34A853`).
 
 **Scorecard 3 — Failed Runs**
-- Metric: Inline calculated field `COUNTIF(status = 'FAILED')`, name `Failed Runs Count`.
-- Label: `Failed Runs`.
+- Metric: Inline calculated field `COUNTIF(status = 'ERROR')`, name `Error Runs Count`.
+- Label: `Error Runs`.
 - Comparison: Previous period.
 - Style: Value color fixed to `#EA4335` (red) — set in Style tab > "Metric value color" > Custom.
 
@@ -855,14 +878,13 @@ Size: ~280 x 280 px, left side, below scorecard row.
 
 1. Insert > Pie chart.
 2. **Dimension:** `status`.
-3. **Metric:** `run_ts` — Count (or `batch_id` — Count).
+3. **Metric:** `run_ts` — Count.
 4. Style tab:
    - Donut: on.
    - Slice colors (set per dimension value):
-     - `SUCCESS` → `#34A853` (green)
-     - `FAILED` → `#EA4335` (red)
+     - `COMPLETED` → `#34A853` (green)
+     - `ERROR` → `#EA4335` (red)
      - `RUNNING` → `#FBBC04` (amber)
-     - `SKIPPED` → `#9E9E9E` (grey, if present)
    - Show labels: on (value + percent).
 
 ---
@@ -877,7 +899,7 @@ Size: **~900 x 260 px**, right of pie chart and spanning across.
 4. **Breakdown dimension:** `status`.
 5. Style tab:
    - Chart type: **Stacked bars**.
-   - Colors: match pie chart (`SUCCESS`=green, `FAILED`=red, `RUNNING`=amber).
+   - Colors: match pie chart (`COMPLETED`=green, `ERROR`=red, `RUNNING`=amber).
    - Show legend: on, top.
    - X-axis: auto-scale to date range control.
 
@@ -886,6 +908,9 @@ Size: **~900 x 260 px**, right of pie chart and spanning across.
 ## Step 6 — Page 2: "Throughput & Latency"
 
 Click **+** to add page 2. Name it `Throughput & Latency`.
+
+Add a **page-level filter** to exclude assertion rows (same as Page 1):
+- Resource > Manage filters > Add filter > `entity` > Does not contain > `ASSERTION:`.
 
 ### Bar Chart — Rows Merged by Entity
 
@@ -899,7 +924,7 @@ Size: ~520 x 280 px, top-left.
    - Orientation: **Vertical bars**.
    - Bar color: `#1565C0`.
    - Show data labels: on.
-6. Expected entities: `customers`, `orders`, `order_items`, `products`.
+6. Expected entities from pipeline jobs: `dim_customers`, `fct_orders`, `dim_products`, `mart_revenue_summary`, `stg_customers`, `stg_orders`, etc. Delta audit rows will also appear as `customers`, `orders`, `order_items`, `products`.
 
 ---
 
@@ -929,27 +954,89 @@ Size: **Full width, ~400 px tall**. Place below the two charts.
    - `run_ts` — label `Run Time`.
    - `entity`
    - `status`
-   - `source_file`
+   - `source_file` — label `Source File` (populated for delta rows only).
 3. **Metrics (4):**
    - `rows_merged` — SUM.
    - `rows_inserted` — SUM.
    - `rows_updated` — SUM.
    - `duration_secs` — Average — label `Duration (s)`.
-4. **Extra column:** Add `error_message` as a dimension (text column).
+4. **Extra columns:** Add `error_message` and `dataform_run_id` as dimension (text) columns.
 5. Sort: `run_ts` descending.
-6. Add **filter**: `run_date` >= `DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`.
-   - In Looker Studio: chart filter > Add filter condition > `run_date` > Greater than or equal to > use the expression. Since Looker Studio filter UI does not support DATE_SUB directly, instead:
-     - Leave this filter off and rely on the **date range control** (set to Last 7 days) to restrict the data.
-     - Alternatively add a **page-level filter**: Resource > Manage filters > Add filter > `run_date` relative date > Last 7 days.
+6. Rely on the **date range control** (set to Last 7 days) to restrict the data.
 7. Rows per page: 50.
 8. Style tab:
    - Header: `#1A237E`, white text.
    - Alternating rows: `#FFFFFF` / `#FAFAFA`.
    - Conditional formatting on `status`:
-     - `SUCCESS` → text color `#2E7D32` (dark green).
-     - `FAILED` → background `#FFEBEE`, text `#C62828` (red).
+     - `COMPLETED` → text color `#2E7D32` (dark green).
+     - `ERROR` → background `#FFEBEE`, text `#C62828` (red).
      - `RUNNING` → background `#FFF8E1` (amber tint).
    - Wrap text: on for `error_message` column (width ~300px).
+
+---
+
+## Step 7 — Page 3: "Data Quality Assertions"
+
+Click **+** to add page 3. Name it `Data Quality`.
+
+Add a **page-level filter** to show assertion rows only:
+- Resource > Manage filters > Add filter > `entity` > Contains > `ASSERTION:`.
+
+### Top Row — 3 Scorecards
+
+Approx **320 x 90 px each**.
+
+**Scorecard 1 — Assertions Passing**
+- Metric: Select calculated field `DQ Assertions Passing`.
+- Label: `Assertions Passing`.
+- Format: Percent, 1 decimal place.
+- Style: value >= 100% → green (`#34A853`); < 100% → red (`#EA4335`).
+
+**Scorecard 2 — Total DQ Violations**
+- Metric: Select calculated field `DQ Violations Total`.
+- Label: `Total Violations`.
+- Format: Number.
+- Style: Value color fixed to `#EA4335` (red) — always draws attention to non-zero.
+
+**Scorecard 3 — Checks Run Today**
+- Metric: `run_ts` — Count.
+- Label: `Checks Run Today`.
+- Add chart-level filter: `run_date` = today (use date range control set to Today).
+
+---
+
+### Table — Assertion Results
+
+Size: **Full width, ~360 px tall**.
+
+1. Insert > Table.
+2. **Dimensions (3):**
+   - `run_ts` — label `Checked At`.
+   - `entity` — label `Assertion`.
+   - `status`.
+3. **Metrics (1):**
+   - `rows_merged` — SUM — label `Violations`.
+4. **Extra column:** `error_message` as dimension — label `Detail`.
+5. Sort: `status` ascending (ERROR rows sort to top), then `entity`.
+6. Rows per page: 25.
+7. Style tab:
+   - Header: `#1A237E`, white text.
+   - Conditional formatting on `status`:
+     - `COMPLETED` → text color `#2E7D32` (dark green).
+     - `ERROR` → background `#FFEBEE`, text `#C62828` (red).
+   - Conditional formatting on `rows_merged` (Violations): value > 0 → text color `#C62828`.
+
+**Expected assertion rows (7 total):**
+
+| `entity` value | What it checks |
+|---|---|
+| `ASSERTION: dim_customers / uniqueKey` | No duplicate `customer_id` |
+| `ASSERTION: dim_customers / nonNull` | No NULL `customer_id` |
+| `ASSERTION: fct_orders / uniqueKey` | No duplicate `order_id` |
+| `ASSERTION: fct_orders / nonNull` | No NULL `order_id`, `customer_id`, `order_date` |
+| `ASSERTION: dim_products / uniqueKey` | No duplicate `product_id` |
+| `ASSERTION: dim_products / nonNull` | No NULL `product_id`, `product_name` |
+| `ASSERTION: mart_revenue_summary / nonNull` | No NULL `summary_date`, `country` |
 
 ---
 
@@ -965,7 +1052,7 @@ For each dashboard, add a **filter bar** at the top of every page:
 2. One control per key dimension, placed in a header strip (height ~50px, background `#1A237E`).
 3. CCO filters: `country`, `customer_segment`, `churn_risk`.
 4. CPO filters: `category`, `brand`, `upsell_status`.
-5. CTO filters: `entity`, `status`.
+5. CTO filters: `entity`, `status`. On the Data Quality page, add a second filter pre-set to `entity` contains `ASSERTION:` to isolate DQ rows.
 
 ## Add Navigation Between Pages
 
@@ -998,7 +1085,7 @@ BigQuery-connected reports refresh on-demand (data is live). No scheduled refres
 | Country not showing on geo map | Ensure `country` semantic type = Geo > Country in data source editor |
 | `margin_pct` showing as 0.498 instead of 49.8 | Do NOT set field type to Percent — keep as Number; field already contains % value |
 | Calculated field `Revenue Share %` shows error | Only works inside table/bar chart, not as standalone scorecard |
-| `batch_id` field missing in CTO source | Replace `COUNT(batch_id)` with `COUNT(run_ts)` in Success Rate formula |
+| Success Rate formula shows error | There is no `batch_id` column — use `COUNT(run_ts)` in all calculated fields |
 | Date range control not affecting a chart | Click the chart, Properties panel > Default date range > uncheck "custom date range" |
 | Stacked bar shows only one color | Ensure breakdown dimension is set AND the field has more than one distinct value in the date range |
 | Geo chart shows blank for some countries | Country codes must be ISO 3166-1 alpha-2 (e.g. `US` not `United States`) — already correct in source |
@@ -1030,17 +1117,21 @@ Revenue Share %:
 SUM(item_revenue) / SUM(SUM(item_revenue))
 ```
 
-**CTO Dashboard (use whichever applies):**
+**CTO Dashboard:**
 ```
-Success Rate (with batch_id):
-COUNTIF(status = 'SUCCESS') / COUNT(batch_id)
+Success Rate:
+COUNTIF(status = 'COMPLETED') / COUNT(run_ts)
 
-Success Rate (without batch_id):
-COUNTIF(status = 'SUCCESS') / COUNT(run_ts)
+Error Runs Count:
+COUNTIF(status = 'ERROR')
 
-Failed Runs Count:
-COUNTIF(status = 'FAILED')
+DQ Assertions Passing:
+COUNTIF(status = 'COMPLETED' AND REGEXP_MATCH(entity, '^ASSERTION:')) / COUNTIF(REGEXP_MATCH(entity, '^ASSERTION:'))
+
+DQ Violations Total:
+SUM(IF(REGEXP_MATCH(entity, '^ASSERTION:') AND status = 'ERROR', rows_merged, 0))
 ```
+> Note: There is no `batch_id` column — use `COUNT(run_ts)` everywhere `COUNT(batch_id)` was previously referenced. Status values are `COMPLETED` and `ERROR` (not `SUCCESS`/`FAILED`).
 
 ---
 
