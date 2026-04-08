@@ -1,6 +1,6 @@
 # Intelia Warehouse — Board Presentation
 ## "From Raw Data to AI-Powered Decisions in Minutes"
-**Date**: March 2026 | **Project**: vishal-sandpit-474523 | **Prepared for**: Board of Directors
+**Date**: April 2026 | **Project**: vishal-sandpit-474523 | **Prepared for**: Board of Directors
 
 ---
 
@@ -21,37 +21,47 @@ A **production-grade, AI-first data warehouse** on Google Cloud that:
 - Transforms it through a governed Bronze → Silver → Gold pipeline
 - Enriches every customer and product record with **Gemini AI insights**
 - Delivers answers to C-suite questions **in seconds, not days**
-- Deploys to any new GCP project in **under 30 minutes** by changing 2 lines of config
+- Deploys to any new GCP project in **under 30 minutes** by changing 4 values in a single config file
 
 ---
 
 ## Architecture at a Glance
+
+![Architecture Diagram](Board.png)
 
 ```
 GCS Source Data                 BigQuery Medallion               AI Enrichment
 ─────────────────               ─────────────────────            ──────────────
 customers.csv        ──►  Bronze (External Tables)
 orders.csv           ──►  │  Schema-on-read, no copy    ──►  Silver (Cleaned)
-order_items.csv      ──►  │  batch_0* delta detection         │  Type-safe, PII tagged
-products.csv         ──►  └─ Idempotent MERGE engine           │  Data quality asserted
+order_items.csv      ──►  │  Idempotent MERGE engine          │  Type-safe, PII tagged
+products.csv         ──►  └─ Event-driven delta workflow       │  Data quality asserted
                                                                ▼
                                                          Gold (Business-Ready)
                                                          dim_customers, fct_orders
                                                          mart_revenue_summary
                                                                │
-                                                               ▼
-                                                    ML.GENERATE_TEXT (Gemini 1.5 Pro)
-                                                    ┌──────────────────────────────┐
-                                                    │  Customer Concierge View     │
-                                                    │  → Persona + Retention Plan  │
-                                                    │  Product Upsell View         │
-                                                    │  → Cross-sell Strategies     │
-                                                    └──────────────────────────────┘
-                                                               │
-                              ┌────────────────────────────────┼──────────────────────┐
-                              ▼                                ▼                      ▼
-                        Looker Dashboards            BQ Data Agent           BQ Canvas
-                        CCO / CPO / CTO              Plain English Q&A       Live Exploration
+                                          ┌────────────────────┘
+                                          │
+                         ┌────────────────┴──────────────────────┐
+                         │  PHASE 1 — BQ ML (product AI)         │
+                         │  ML.GENERATE_TEXT (Gemini 2.5 Flash)  │
+                         │  product_ai_1-4 shards → product_upsell│
+                         ├───────────────────────────────────────┤
+                         │  PHASE 2 — Cloud Run (customer AI)    │
+                         │  BQ ML chunked: 1000 rows/job,        │
+                         │  10 concurrent → customer_ai_raw      │
+                         ├───────────────────────────────────────┤
+                         │  PHASE 3 — Dataform (ai_aggregate)    │
+                         │  customer_concierge                   │
+                         │  ai_enriched_profiles                 │
+                         │  mart_executive_summary_enriched      │
+                         └──────────────────┬────────────────────┘
+                                            │
+              ┌─────────────────────────────┼──────────────────────┐
+              ▼                             ▼                      ▼
+        Looker Studio               BQ Data Agent           BQ Canvas
+        CCO / CPO / CTO             Plain English Q&A       Live Exploration
 ```
 
 ---
@@ -60,15 +70,15 @@ products.csv         ──►  └─ Idempotent MERGE engine           │  Da
 
 | Stakeholder | Question | Before | After | Tool |
 |------------|---------|--------|-------|------|
-| **CCO** | "What is revenue vs target this month?" | 2 days (manual) | **< 3 seconds** | Looker CCO Dashboard |
+| **CCO** | "What is revenue vs target this month?" | 2 days (manual) | **< 3 seconds** | Looker Studio CCO Dashboard |
 | **CCO** | "Why is Customer X at risk of churning?" | 1 week (analyst) | **Instant** | Gemini AI Insight column |
 | **CCO** | "Show 12-month retention by customer cohort" | 3 days | **< 5 seconds** | Pre-computed Gold layer |
-| **CPO** | "Which product category is growing fastest?" | 3 days (analyst) | **< 5 seconds** | Looker CPO Dashboard |
+| **CPO** | "Which product category is growing fastest?" | 3 days (analyst) | **< 5 seconds** | Looker Studio CPO Dashboard |
 | **CPO** | "What upsell strategies should we run on Product X?" | Never attempted | **Instant** | Gemini Product Upsell tile |
 | **CPO** | "Are repeat or new buyers driving this category?" | 1 week | **< 5 seconds** | New vs Repeat Buyer tile |
-| **CTO** | "What % of queries are hitting our AI views?" | Unknown | **Real-time** | INFORMATION_SCHEMA tile |
+| **CTO** | "Is our pipeline healthy right now?" | Unknown | **Real-time** | rpt_cto_dashboard — INFORMATION_SCHEMA.JOBS |
 | **CTO** | "Are we compliant with data governance policy?" | Manual audit (1 week) | **Live score** | Policy tag coverage % |
-| **CTO** | "What is our slot consumption trend?" | Not measured | **30-day chart** | Slot Utilization tile |
+| **CTO** | "Are any data quality checks failing?" | Not measured | **Live DQ score** | DQ Assertions page — Looker Studio |
 | **Any** | Ad-hoc question not on a dashboard | Days (analyst ticket) | **< 1 minute** | BigQuery Data Agent |
 | **Any** | Board meeting exploratory analysis | Days (PowerPoint) | **Minutes** | BigQuery Canvas |
 
@@ -98,12 +108,12 @@ products.csv         ──►  └─ Idempotent MERGE engine           │  Da
 
 ### Chief Technology Officer (CTO)
 **What they get:**
-- **AI Adoption Rate**: Real-time % of queries touching AI-enriched views — proof that the AI investment is being used
-- **Query Performance**: Average execution time and slot utilization trends over 30 days — identify performance regressions before they become incidents
+- **Full Pipeline Visibility**: `rpt_cto_dashboard` unions three sources — every BQ job the Dataform SA ran (90-day INFORMATION_SCHEMA.JOBS), delta MERGE audit rows with row counts and timing, and live DQ assertion results
+- **Data Quality Score**: 7 live assertion checks across `dim_customers`, `fct_orders`, `dim_products`, `mart_revenue_summary` — COMPLETED or ERROR with violation counts
 - **Governance Compliance Score**: Live % of columns in Gold/Silver/AI datasets that have Data Catalog policy tags applied — a single number that answers "are we compliant?"
-- **Pipeline Health**: Every delta batch run is logged with status, row counts, and timing — full audit trail
+- **Delta Audit Trail**: Every GCS file drop that triggered a delta MERGE is logged in `governance.batch_audit_log` with status, row counts, duration, and run ID
 
-**The "wow" moment**: A live compliance score that goes up as the team applies policy tags — governance as a measurable KPI, not a checkbox.
+**The "wow" moment**: A single dashboard showing pipeline health, data quality, and governance compliance — all refreshed automatically on every run.
 
 ---
 
@@ -111,12 +121,12 @@ products.csv         ──►  └─ Idempotent MERGE engine           │  Da
 
 | Requirement | How Delivered |
 |-------------|--------------|
-| **Vertex AI + ML.GENERATE_TEXT + Dataform** | Dataform manages the full pipeline; ML.GENERATE_TEXT runs Gemini inside BigQuery for customer personas and product strategies |
-| **Agentic workflows** | Vertex AI Reasoning Engine agent + native BigQuery Data Agent — both deployed and configured |
-| **Data governance: lineage, catalogue, more** | Dataform lineage DAG, Data Catalog policy tag taxonomy (PII + revenue), column-level security, audit logging, model evaluation log, usage statistics |
-| **CCO + CPO + CTO questions answered** | Three dedicated dashboards; every question from the brief answered with a named tile and SQL |
-| **Terraform automation / clean architecture** | Single `terraform.tfvars` change deploys the entire stack to any new GCP project |
-| **Security: no permission leaks, unused services off** | 13 APIs enabled only; separate SAs per workload; no `bigquery.admin` for non-infra; PII masking via policy tags; Secret Manager for all credentials |
+| **Vertex AI + ML.GENERATE_TEXT + Dataform** | Dataform manages the full pipeline; ML.GENERATE_TEXT runs Gemini 2.5 Flash inside BigQuery for customer personas (via Cloud Run BQ ML chunks) and product strategies (4 BQ ML shards) |
+| **Agentic workflows** | Native BigQuery Data Agent deployed and configured for plain-English Q&A against the Gold layer |
+| **Data governance: lineage, catalogue, more** | Dataform lineage DAG, Data Catalog policy tag taxonomy (PII + Financial + Internal), column-level security, delta audit logging, DQ assertion checks, schema change log |
+| **CCO + CPO + CTO questions answered** | Three dedicated Looker Studio dashboards; every question from the brief answered with a named tile |
+| **Terraform automation / clean architecture** | 4 values in `terraform.tfvars` deploys the entire stack (16 modules) to any new GCP project |
+| **Security: no permission leaks, unused services off** | 10 service accounts with least-privilege IAM roles; PII masking via policy tags; Secret Manager for all credentials |
 
 ---
 
@@ -124,16 +134,16 @@ products.csv         ──►  └─ Idempotent MERGE engine           │  Da
 
 | Control | Implementation |
 |---------|---------------|
-| Principle of least privilege | 4 separate service accounts with minimum-viable IAM roles |
-| PII protection | Column-level security via Data Catalog policy tags — Analysts cannot see raw PII |
-| Row-level security | Authorized views restrict regional data access per stakeholder role |
+| Principle of least privilege | 10 service accounts — one per workload (dataform, workflows, eventarc, cloud run, dataplex, cloud build, etc.) |
+| PII protection | Column-level security via Data Catalog policy tags — Analysts cannot see raw PII (`email`, `phone`, `customer_name`) |
+| PII masking in AI layer | `dim_customers_analyst` — SHA-256 email, truncated phone, initialised name — used as input to all AI processing |
 | Credential security | All secrets in Secret Manager — never in code or environment variables |
-| Audit trail | BigQuery DATA_READ/DATA_WRITE/ADMIN_READ audit logs enabled |
-| Cost governance | Budget alerts at 50%, 80%, 100% with email + Pub/Sub notification |
-| Data freshness SLA | Cloud Monitoring alert fires if Gold layer not refreshed within 6 hours |
-| Model governance | Weekly eval scores Gemini output quality; results in `ai.model_evaluation_log` |
-| Schema evolution | Registry-based: new columns auto-added, renames mapped, type changes logged |
-| Delta idempotency | Every batch checked against `governance.batch_audit_log` before running |
+| Audit trail | `governance.batch_audit_log` — every delta MERGE logged with status, row counts, timing |
+| DQ assertions | 7 live checks on Gold tables — uniqueKey + nonNull across `dim_customers`, `fct_orders`, `dim_products`, `mart_revenue_summary` |
+| Cost governance | Budget alerts at 80% and 100% of monthly threshold |
+| Data freshness SLA | Cloud Monitoring alert fires if Gold layer not refreshed within configured window |
+| Schema evolution | `governance.schema_change_log` — new columns, type changes, and removals detected and logged |
+| Delta idempotency | Every batch checked against `governance.batch_audit_log` before running — no duplicate processing |
 
 ---
 
@@ -142,12 +152,12 @@ products.csv         ──►  └─ Idempotent MERGE engine           │  Da
 > **"We deploy a production-grade AI data warehouse in your GCP project in under 30 minutes.**
 >
 > Your C-suite gets live answers to revenue, retention, product, and platform questions —
-> enriched by Gemini AI — from a single dashboard.
+> enriched by Gemini 2.5 Flash — from a single dashboard.
 >
 > No analysts in the loop. No data engineering sprints. No permission leaks.
 > Full governance. Fully automated.
 >
-> Change two lines. Deploy. Done."**
+> Change four values. Deploy. Done."**
 
 ---
 
@@ -158,25 +168,25 @@ products.csv         ──►  └─ Idempotent MERGE engine           │  Da
 git clone https://github.com/chtsalvishal/Hackathon---GENAI-Comp-2
 cd Hackathon---GENAI-Comp-2
 
-# 2. Set your project (the ONLY file you change)
+# 2. Edit the ONLY file you need to change
+#    Set: project_id, region, billing_account_id, github_app_installation_id
 vim terraform/terraform.tfvars
-# → project_id = "your-client-project"
-# → region     = "your-region"
 
-# 3. Authenticate to GCP
-gcloud auth login
-gcloud auth application-default login
+# 3. Authenticate and build the Cloud Run image
+gcloud auth login && gcloud auth application-default login
+gcloud builds submit \
+  --tag gcr.io/{YOUR_PROJECT_ID}/customer-ai-processor:latest \
+  cloudrun/customer_ai/
 
-# 4. Deploy everything
-./scripts/bootstrap.sh
+# 4. Deploy all infrastructure (16 Terraform modules)
+cd terraform && terraform init && terraform apply
 
-# 5. Open dashboards
-# Looker: your-looker-instance.cloud.looker.com
-# BigQuery Canvas: Console → BigQuery → Canvas
-# Data Agent: Console → BigQuery → Data Agent panel
+# 5. Set GitHub token and run the first pipeline
+echo -n "ghp_yourtoken" | gcloud secrets versions add github-token --data-file=-
+gcloud workflows run daily-refresh-workflow --location={YOUR_REGION} --data='{}'
 ```
 
 ---
 
-*Architecture: BigQuery Medallion (Bronze/Silver/Gold) + Gemini 1.5 Pro (ML.GENERATE_TEXT) + Vertex AI Reasoning Engine + Dataform + Looker + BigQuery Canvas + Data Catalog*
-*Infrastructure: Terraform (modular, single-tfvars deployment) | Security: IAM, Secret Manager, Policy Tags, Authorized Views*
+*Architecture: BigQuery Medallion (Bronze/Silver/Gold/AI/Governance) + Gemini 2.5 Flash (ML.GENERATE_TEXT) + Cloud Run BQ ML orchestration + Dataform + Looker Studio + BigQuery Canvas + Data Catalog*
+*Infrastructure: Terraform (16 modules, single-tfvars deployment) | Security: 10 service accounts, Secret Manager, Policy Tags, Column-level security*
