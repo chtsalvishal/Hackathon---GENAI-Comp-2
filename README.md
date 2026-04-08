@@ -20,75 +20,63 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 │  Source systems → Cloud Storage (delta staging bucket)              │
 │    batch_*_customers_delta.csv  /  batch_*_orders_delta.csv         │
 │    batch_*_order_items_delta.csv  /  batch_*_products_delta.csv     │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │ object.finalize event
-                           ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  EVENT-DRIVEN INGESTION                                             │
-│                                                                     │
-│  Cloud Storage ──► Cloud Pub/Sub (delta-arrivals topic)             │
-│                         │                                           │
-│                    Eventarc trigger                                  │
-│                         │                                           │
-│                    Cloud Workflows                                   │
-│                    delta-ingest-workflow                             │
-│                      • Calls Dataform API to compile                │
-│                      • Invokes [delta] tag tables only              │
-│                      • MERGE into gold dims                         │
-│                      • Writes to BigQuery audit log                 │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  DAILY REFRESH — Cloud Workflows (daily-refresh-workflow)           │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │ PHASE 1  Dataform  [tag: daily_refresh]                     │   │
-│  │                                                             │   │
-│  │  Cloud Storage                                              │   │
-│  │      │                                                      │   │
-│  │      ▼                                                      │   │
-│  │  BigQuery (bronze) — External tables, query-in-place        │   │
-│  │      │                                                      │   │
-│  │      ▼                                                      │   │
-│  │  BigQuery (silver) — Typed, cleaned, normalised             │   │
-│  │      │                                                      │   │
-│  │      ▼                                                      │   │
-│  │  BigQuery (gold)   — Dims, facts, marts, reports            │   │
-│  │      │                                                      │   │
-│  │      ▼                                                      │   │
-│  │  BigQuery ML → Vertex AI (Gemini 2.5 Flash)                 │   │
-│  │      product_ai_1-4 shards → product_upsell                 │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │ PHASE 2  Cloud Run (customer-ai-processor)                  │   │
-│  │                                                             │   │
-│  │  POST /process → 202 (fire-and-forget)                      │   │
-│  │      │                                                      │   │
-│  │      ▼                                                      │   │
-│  │  Reads BigQuery gold.dim_customers_analyst                  │   │
-│  │      │                                                      │   │
-│  │      ▼                                                      │   │
-│  │  BigQuery ML (ML.GENERATE_TEXT) — Gemini 2.5 Flash          │   │
-│  │  CHUNK_SIZE=1000 rows/job, CHUNK_PARALLEL=10 concurrent     │   │
-│  │      │                                                      │   │
-│  │      ▼                                                      │   │
-│  │  Writes BigQuery ai.customer_ai_raw (WRITE_TRUNCATE)        │   │
-│  │                                                             │   │
-│  │  Workflow polls GET /status every 30s until done            │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │ PHASE 3  Dataform  [tag: ai_aggregate]                      │   │
-│  │                                                             │   │
-│  │  customer_concierge  (reads + drops customer_ai_raw)        │   │
-│  │  ai_enriched_profiles                                       │   │
-│  │  mart_executive_summary_enriched                            │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │
-                           ▼
+└──────────────┬──────────────────────────────────────────────────────┘
+               │
+     ┌─────────┴──────────┐
+     │ object.finalize     │ manual / CI-CD trigger
+     ▼                     ▼
+┌─────────────────────┐   ┌─────────────────────────────────────────────┐
+│  EVENT-DRIVEN       │   │  DAILY REFRESH                              │
+│  INGESTION          │   │  Cloud Workflows (daily-refresh-workflow)   │
+│                     │   │                                             │
+│  GCS                │   │  ┌───────────────────────────────────────┐  │
+│   │                 │   │  │ PHASE 1  Dataform  [tag: daily_refresh]│  │
+│   ▼                 │   │  │                                       │  │
+│  Pub/Sub            │   │  │  Cloud Storage                        │  │
+│  (delta-arrivals)   │   │  │      │                                │  │
+│   │                 │   │  │      ▼                                │  │
+│   ▼                 │   │  │  BigQuery (bronze) — External tables  │  │
+│  Eventarc trigger   │   │  │      │                                │  │
+│   │                 │   │  │      ▼                                │  │
+│   ▼                 │   │  │  BigQuery (silver) — Cleaned/typed    │  │
+│  Cloud Workflows    │   │  │      │                                │  │
+│  delta-ingest-      │   │  │      ▼                                │  │
+│  workflow           │   │  │  BigQuery (gold) — Dims/facts/marts   │  │
+│   │                 │   │  │      │                                │  │
+│   ▼                 │   │  │      ▼                                │  │
+│  Dataform           │   │  │  BQ ML → Vertex AI (Gemini 2.5 Flash) │  │
+│  [tag: delta]       │   │  │  product_ai_1-4 shards → product_upsell│ │
+│   │                 │   │  └───────────────────────────────────────┘  │
+│   ▼                 │   │                                             │
+│  delta_customers    │   │  ┌───────────────────────────────────────┐  │
+│  delta_products     │   │  │ PHASE 2  Cloud Run                    │  │
+│  delta_orders       │   │  │         (customer-ai-processor)       │  │
+│  delta_order_items  │   │  │                                       │  │
+│   │                 │   │  │  POST /process → 202 (fire-and-forget)│  │
+│   ▼                 │   │  │      │                                │  │
+│  MERGE into         │   │  │      ▼                                │  │
+│  gold dim_customers │   │  │  Reads gold.dim_customers_analyst     │  │
+│  gold dim_products  │   │  │      │                                │  │
+│   │                 │   │  │      ▼                                │  │
+│   ▼                 │   │  │  BQ ML (ML.GENERATE_TEXT)             │  │
+│  governance.        │   │  │  CHUNK_SIZE=1000, CHUNK_PARALLEL=10   │  │
+│  batch_audit_log    │   │  │      │                                │  │
+└─────────────────────┘   │  │      ▼                                │  │
+                          │  │  ai.customer_ai_raw (WRITE_TRUNCATE)  │  │
+                          │  │  Workflow polls GET /status every 30s │  │
+                          │  └───────────────────────────────────────┘  │
+                          │                                             │
+                          │  ┌───────────────────────────────────────┐  │
+                          │  │ PHASE 3  Dataform  [tag: ai_aggregate] │  │
+                          │  │                                       │  │
+                          │  │  customer_concierge                   │  │
+                          │  │    (reads + drops customer_ai_raw)    │  │
+                          │  │  ai_enriched_profiles                 │  │
+                          │  │  mart_executive_summary_enriched      │  │
+                          │  └───────────────────────────────────────┘  │
+                          └──────────────────────┬──────────────────────┘
+                                                 │
+                                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  GOVERNANCE & OBSERVABILITY                                         │
 │                                                                     │
