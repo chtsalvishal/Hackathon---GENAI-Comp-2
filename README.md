@@ -14,6 +14,8 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 
 ## Architecture
 
+![Architecture Diagram](docs/Arch.png)
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │  DATA SOURCES                                                       │
