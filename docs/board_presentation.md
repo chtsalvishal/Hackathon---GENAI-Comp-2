@@ -75,7 +75,7 @@ A **production-grade, AI-first data warehouse** on Google Cloud that:
 **What they get:**
 - **Full Pipeline Visibility**: `rpt_cto_dashboard` unions three sources — every BQ job the Dataform SA ran (90-day INFORMATION_SCHEMA.JOBS), delta MERGE audit rows with row counts and timing, and live DQ assertion results
 - **Data Quality Score**: 7 live assertion checks across `dim_customers`, `fct_orders`, `dim_products`, `mart_revenue_summary` — COMPLETED or ERROR with violation counts
-- **Governance Compliance Score**: Live % of columns in Gold/Silver/AI datasets that have Data Catalog policy tags applied — a single number that answers "are we compliant?"
+- **Governance Compliance Score**: Live % of columns in Gold/Silver/AI datasets that have Knowledge Catalog policy tags applied — a single number that answers "are we compliant?"
 - **Delta Audit Trail**: Every GCS file drop that triggered a delta MERGE is logged in `governance.batch_audit_log` with status, row counts, duration, and run ID
 
 **The "wow" moment**: A single dashboard showing pipeline health, data quality, and governance compliance — all refreshed automatically on every run.
@@ -88,7 +88,7 @@ A **production-grade, AI-first data warehouse** on Google Cloud that:
 |-------------|--------------|
 | **Vertex AI + ML.GENERATE_TEXT + Dataform** | Dataform manages the full pipeline; ML.GENERATE_TEXT runs Gemini 2.5 Flash inside BigQuery for customer personas (via Cloud Run BQ ML chunks) and product strategies (4 BQ ML shards) |
 | **Agentic workflows** | Native BigQuery Data Agent deployed and configured for plain-English Q&A against the Gold layer |
-| **Data governance: lineage, catalogue, more** | Dataform lineage DAG, Data Catalog policy tag taxonomy (PII + Financial + Internal), column-level security, delta audit logging, DQ assertion checks, schema change log |
+| **Data governance: lineage, catalogue, more** | Dataform lineage DAG, Knowledge Catalog (Dataplex Universal Catalog) policy tag taxonomy (PII + Financial + Internal), column-level security, delta audit logging, DQ assertion checks, schema change log |
 | **CCO + CPO + CTO questions answered** | Three dedicated Looker Studio dashboards; every question from the brief answered with a named tile |
 | **Terraform automation / clean architecture** | 4 values in `terraform.tfvars` deploys the entire stack (16 modules) to any new GCP project |
 | **Security: no permission leaks, unused services off** | 10 service accounts with least-privilege IAM roles; PII masking via policy tags; Secret Manager for all credentials |
@@ -100,7 +100,7 @@ A **production-grade, AI-first data warehouse** on Google Cloud that:
 | Control | Implementation |
 |---------|---------------|
 | Principle of least privilege | 10 service accounts — one per workload (dataform, workflows, eventarc, cloud run, dataplex, cloud build, etc.) |
-| PII protection | Column-level security via Data Catalog policy tags — Analysts cannot see raw PII (`email`, `phone`, `customer_name`) |
+| PII protection | Column-level security via Knowledge Catalog (Dataplex Universal Catalog) policy tags — Analysts cannot see raw PII (`email`, `phone`, `customer_name`) |
 | PII masking in AI layer | `dim_customers_analyst` — SHA-256 email, truncated phone, initialised name — used as input to all AI processing |
 | Credential security | All secrets in Secret Manager — never in code or environment variables |
 | Audit trail | `governance.batch_audit_log` — every delta MERGE logged with status, row counts, timing |
@@ -153,5 +153,5 @@ gcloud workflows run daily-refresh-workflow --location={YOUR_REGION} --data='{}'
 
 ---
 
-*Architecture: BigQuery Medallion (Bronze/Silver/Gold/AI/Governance) + Gemini 2.5 Flash (ML.GENERATE_TEXT) + Cloud Run BQ ML orchestration + Dataform + Looker Studio + BigQuery Canvas + Data Catalog*
+*Architecture: BigQuery Medallion (Bronze/Silver/Gold/AI/Governance) + Gemini 2.5 Flash (ML.GENERATE_TEXT) + Cloud Run BQ ML orchestration + Dataform + Looker Studio + BigQuery Canvas + Knowledge Catalog (Dataplex Universal Catalog)*
 *Infrastructure: Terraform (16 modules, single-tfvars deployment) | Security: 10 service accounts, Secret Manager, Policy Tags, Column-level security*

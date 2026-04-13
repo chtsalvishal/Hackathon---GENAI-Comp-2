@@ -1,12 +1,18 @@
 # ---------------------------------------------------------------------------
-# Data Catalog Policy Tag Taxonomy — "Intelia Data Taxonomy"
+# Knowledge Catalog (Dataplex Universal Catalog) — Policy Tag Taxonomy
+#
+# Data Catalog was deprecated in 2024. Policy tag management is now part of
+# Dataplex Universal Catalog. The underlying resources (google_data_catalog_taxonomy
+# and google_data_catalog_policy_tag) remain the correct Terraform resources for
+# BigQuery column-level security — they use the Policy Tag Manager API which
+# now lives under Dataplex Universal Catalog in the GCP console.
 # ---------------------------------------------------------------------------
 
 resource "google_data_catalog_taxonomy" "intelia" {
   project                = var.project_id
   region                 = var.region
   display_name           = "Intelia Data Taxonomy"
-  description            = "Enterprise policy tag taxonomy governing PII, sensitive financial, and internal data classifications."
+  description            = "Enterprise policy tag taxonomy governing PII, sensitive financial, and internal data classifications. Managed via Dataplex Universal Catalog (Knowledge Catalog)."
   activated_policy_types = ["FINE_GRAINED_ACCESS_CONTROL"]
 }
 
@@ -90,8 +96,9 @@ resource "google_data_catalog_policy_tag" "internal_cost" {
 }
 
 # ---------------------------------------------------------------------------
-# Business Glossary — implemented as governance.business_glossary in Dataform
-# (Data Catalog tag templates deprecated; Dataplex Catalog is the successor)
+# Business Glossary — implemented as governance.business_glossary in Dataform.
+# Data Catalog tag templates are deprecated; Dataplex Universal Catalog
+# (Knowledge Catalog) is the successor for all metadata management.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------

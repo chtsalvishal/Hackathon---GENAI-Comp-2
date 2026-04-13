@@ -32,8 +32,8 @@ Every customer gets a Gemini 2.5 Flash-generated **persona** and **retention str
 | **Eventarc** | Triggers delta-ingest-workflow on GCS `object.finalize` events |
 | **Cloud Pub/Sub** | Event bus between GCS file notifications and Eventarc |
 | **Cloud Storage** | Delta staging bucket — incoming CSV source of truth |
-| **Dataplex** | Data governance — lake/zone definitions, scheduled data quality scans, lineage |
-| **Data Catalog** | Policy tag taxonomy — column-level security for PII and financial data |
+| **Dataplex** | Data governance — lake/zone definitions, scheduled data quality scans, lineage, Knowledge Catalog (Universal Catalog) |
+| **Knowledge Catalog** | Policy tag taxonomy (Dataplex Universal Catalog) — column-level security for PII and financial data |
 | **Cloud Build** | CI/CD — validates on PR, applies on merge to main |
 | **Secret Manager** | GitHub token for Dataform repository connection |
 | **Cloud Monitoring** | Budget alerts, workflow failure alerts, data freshness SLA |
@@ -113,7 +113,7 @@ Cloud Run orchestrates BQ ML `ML.GENERATE_TEXT` in parallel chunks to bypass sin
 
 ## Governance & Security
 
-- **Column-level security**: Data Catalog policy tags on PII columns (`email`, `phone`, `customer_name`) and financial columns (`total_lifetime_value`, `unit_price`) — enforced at query time
+- **Column-level security**: Knowledge Catalog (Dataplex Universal Catalog) policy tags on PII columns (`email`, `phone`, `customer_name`) and financial columns (`total_lifetime_value`, `unit_price`) — enforced at query time via BigQuery Policy Tag Manager
 - **BigQuery native lineage**: Auto-captured — GCS → bronze → silver → gold → ai
 - **Dataplex data quality scans**: Scheduled scans on `dim_customers`, `fct_orders`, `dim_products` with scorecards in Cloud Monitoring
 - **Budget alerts**: 80% + 100% spend threshold alerts
@@ -150,7 +150,7 @@ Cloud Run orchestrates BQ ML `ML.GENERATE_TEXT` in parallel chunks to bypass sin
 │       ├── pubsub/           # delta-arrivals topic + GCS notification
 │       ├── eventarc/         # GCS → Workflows trigger
 │       ├── secret_manager/   # GitHub token secret
-│       ├── data_catalog/     # Policy tag taxonomy
+│       ├── data_catalog/     # Knowledge Catalog policy tag taxonomy (Dataplex Universal Catalog)
 │       ├── dataplex/         # Lake, zones, DQ scans
 │       ├── monitoring/       # Budget + alert policies
 │       ├── vertex_ai/        # Metadata store (validates aiplatform API)

@@ -1,5 +1,5 @@
 output "taxonomy_id" {
-  description = "The resource name of the Intelia Data Catalog policy tag taxonomy."
+  description = "The resource name of the Intelia Knowledge Catalog policy tag taxonomy (Dataplex Universal Catalog)."
   value       = google_data_catalog_taxonomy.intelia.id
 }
 

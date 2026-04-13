@@ -1,9 +1,9 @@
 /**
  * governance_tags.js
  *
- * BigQuery Data Catalog policy tag resource IDs.
+ * BigQuery Knowledge Catalog (Dataplex Universal Catalog) policy tag resource IDs.
  * Taxonomy and tag IDs populated after `terraform apply` on 2026-03-23.
- * to create the taxonomy in australia-southeast1.
+ * Taxonomy created in australia-southeast1 via the knowledge_catalog Terraform module.
  *
  * Usage in SQLX column config:
  *   bigqueryPolicyTags: [POLICY_TAGS.PII]

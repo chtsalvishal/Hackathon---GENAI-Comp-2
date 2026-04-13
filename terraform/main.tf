@@ -83,9 +83,11 @@ module "bigquery" {
 }
 
 # ---------------------------------------------------------------------------
-# 6. Data Catalog — policy tag taxonomy and BigQuery audit logging.
+# 6. Knowledge Catalog (Dataplex Universal Catalog) — policy tag taxonomy
+#    and BigQuery audit logging. Data Catalog was deprecated in 2024;
+#    policy tag management now lives under Dataplex Universal Catalog.
 # ---------------------------------------------------------------------------
-module "data_catalog" {
+module "knowledge_catalog" {
   source     = "./modules/data_catalog"
   project_id = var.project_id
   region     = var.region

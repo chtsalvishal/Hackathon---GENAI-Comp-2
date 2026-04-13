@@ -27,7 +27,7 @@ resource "google_service_account" "governance" {
   project      = var.project_id
   account_id   = "governance"
   display_name = "Governance Service Account"
-  description  = "Data Catalog tag editor and BigQuery metadata viewer for data governance."
+  description  = "Knowledge Catalog (Dataplex Universal Catalog) editor and BigQuery metadata viewer for data governance."
 }
 
 resource "google_service_account" "dataform" {
@@ -155,9 +155,9 @@ resource "google_project_iam_member" "data_engineer_storage_object_viewer" {
 # Governance IAM bindings
 # ---------------------------------------------------------------------------
 
-resource "google_project_iam_member" "governance_catalog_tag_editor" {
+resource "google_project_iam_member" "governance_knowledge_catalog_editor" {
   project = var.project_id
-  role    = "roles/datacatalog.tagEditor"
+  role    = "roles/dataplex.catalogEditor"
   member  = "serviceAccount:${google_service_account.governance.email}"
 }
 
@@ -183,26 +183,27 @@ resource "google_project_iam_member" "dataform_sa_bq_job_user" {
   member  = "serviceAccount:${google_service_account.dataform.email}"
 }
 
-# Grant Dataform the authority to attach Data Catalog Policy Tags (Column-level security)
+# Grant Dataform the authority to attach Knowledge Catalog policy tags (column-level security)
 resource "google_project_iam_member" "dataform_sa_data_owner" {
   project = var.project_id
   role    = "roles/bigquery.dataOwner"
   member  = "serviceAccount:${google_service_account.dataform.email}"
 }
 
-resource "google_project_iam_member" "dataform_sa_catalog_tag_editor" {
+resource "google_project_iam_member" "dataform_sa_knowledge_catalog_editor" {
   project = var.project_id
-  role    = "roles/datacatalog.tagEditor"
+  role    = "roles/dataplex.catalogEditor"
   member  = "serviceAccount:${google_service_account.dataform.email}"
 }
 
-# Grant Dataform the ability to READ the taxonomy schemas to apply the tags
-resource "google_project_iam_member" "dataform_sa_catalog_viewer" {
+# Grant Dataform the ability to read the taxonomy schemas to apply policy tags
+resource "google_project_iam_member" "dataform_sa_knowledge_catalog_viewer" {
   project = var.project_id
-  role    = "roles/datacatalog.viewer"
+  role    = "roles/dataplex.viewer"
   member  = "serviceAccount:${google_service_account.dataform.email}"
 }
 
+# Still required for BigQuery column-level policy tag enforcement (Policy Tag Manager)
 resource "google_project_iam_member" "dataform_sa_fine_grained_reader" {
   project = var.project_id
   role    = "roles/datacatalog.categoryFineGrainedReader"

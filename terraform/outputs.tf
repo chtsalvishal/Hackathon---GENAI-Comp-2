@@ -13,9 +13,9 @@ output "gemini_model_id" {
   value       = "gemini-pro"
 }
 
-output "data_catalog_taxonomy_id" {
-  description = "The resource name of the Data Catalog policy tag taxonomy."
-  value       = module.data_catalog.taxonomy_id
+output "knowledge_catalog_taxonomy_id" {
+  description = "The resource name of the Knowledge Catalog (Dataplex Universal Catalog) policy tag taxonomy."
+  value       = module.knowledge_catalog.taxonomy_id
 }
 
 output "gcs_bucket_name" {
